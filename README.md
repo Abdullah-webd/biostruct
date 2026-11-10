@@ -43,10 +43,10 @@ asserts efficacy or clinical readiness, and every export leads with its limitati
 ## Stack
 
 **Web** — Next.js (App Router) · TypeScript · Tailwind · Mol\* · GSAP/Motion/Lenis
-**API** — Python 3.12 · FastAPI · ARQ worker
+**API** — Python 3.12 · FastAPI · reconciler worker (no queue, no broker)
 **Science** — Boltz API (`BoltzProt-1` design, `Boltz-2` structure + affinity) · UniProt · RCSB PDB · PubMed
 **AI** — OpenAI Agents SDK · Realtime API (voice)
-**Data** — MongoDB · Redis · Cloudflare R2
+**Data** — MongoDB (data, cache, change-stream progress) · Cloudflare R2
 
 One correction worth knowing up front: **Boltz-2 cannot design binders** — it scores complexes.
 De novo design comes from **BoltzProt-1** (hosted API) or BoltzGen (open source, needs an A100).
@@ -60,7 +60,7 @@ Nothing to run yet. Once M0 lands:
 
 ```bash
 cp .env.example .env     # fill in BOLTZ_API_KEY and OPENAI_API_KEY
-docker compose up -d     # MongoDB + Redis
+docker compose up -d     # MongoDB (single-node replica set)
 uv sync                  # Python 3.12 deps
 pnpm install             # web deps
 ```

@@ -123,7 +123,7 @@ implying otherwise, and that drift is the single biggest reputational risk in th
 | Latency | p95 < 400 ms for CRUD/search endpoints; UniProt/PDB/PubMed fan-out < 2.5 s (cached < 150 ms); first Mol* paint < 1.5 s after CIF fetch |
 | Job latency | Design runs are minutes–hours. **No request waits on one.** Progress visible within 10 s of a status change. |
 | Availability | 99.5% for the app. External science APIs are assumed flaky: every call retried with jittered backoff, degraded answers labelled as such. |
-| Scale (v1) | 100 registered users, 20 concurrent, 500 design runs/month, ~50 GB structures. Single API instance + worker; nothing in the design prevents horizontal scaling (all state in Mongo/Redis/S3). |
+| Scale (v1) | 100 registered users, 20 concurrent, 500 design runs/month, ~50 GB structures. Single API instance + worker; nothing in the design prevents horizontal scaling (all state in Mongo/S3). |
 | Cost ceiling | Platform infra < $60/month. Science spend bounded by per-project budgets + a Boltz workspace spending limit. OpenAI < $50/month at v1 traffic. |
 | Security | OWASP ASVS L2 posture. No secret ever reaches the browser. Prompt-injection defence on all retrieved text (§11). |
 | Accessibility | WCAG 2.2 AA. Keyboard-navigable throughout. Mol* has a non-visual equivalent (sequence + metrics table). `prefers-reduced-motion` respected. |
@@ -148,13 +148,12 @@ graph TB
     subgraph "Backend — Fly.io / Railway"
         API[FastAPI<br/>REST + SSE]
         ORCH[Agent orchestrator<br/>openai-agents]
-        REC[Job reconciler<br/>ARQ worker]
+        REC[Job reconciler<br/>scan loop]
         BRIDGE[Voice tool bridge]
     end
 
     subgraph Data
-        MONGO[(MongoDB Atlas<br/>projects, targets,<br/>candidates, sessions)]
-        REDIS[(Redis<br/>queue, cache, pub/sub)]
+        MONGO[(MongoDB Atlas<br/>projects, targets, candidates,<br/>sessions, source cache TTL)]
         S3[(S3 / R2<br/>mmCIF, archives, reports)]
     end
 
@@ -177,18 +176,17 @@ graph TB
 
     API --> ORCH
     API --> MONGO
-    API --> REDIS
+    API -->|change stream: progress| MONGO
     API --> S3
     ORCH --> OPENAI
     ORCH -->|tools| UNIPROT
     ORCH -->|tools| PDB
     ORCH -->|tools| PUBMED
-    ORCH -->|start job only| BOLTZ
-    API -->|enqueue| REDIS
+    ORCH -->|estimate cost only<br/>never starts a run| BOLTZ
+    REC -->|scan runs in progress| MONGO
     REC -->|poll status/results| BOLTZ
     REC -->|mirror artifacts| S3
-    REC --> MONGO
-    REC -->|publish progress| REDIS
+    REC -->|write progress| MONGO
 ```
 
 **Path of the one request that matters.** A user asks the assistant to design binders against
@@ -196,8 +194,9 @@ KPC-2. FastAPI runs the orchestrator, which calls the Protein Design Agent as a 
 calls `estimate_cost`, returns the figure, and **stops** — spending needs a human. The user
 confirms in the UI. FastAPI checks the project budget, calls `client.protein.design.start()` with
 an `idempotency_key`, writes a `design_run` document with status `pending`, and returns the run id
-in well under a second. The ARQ reconciler picks the run up, polls `retrieve()` on a backoff
-schedule, publishes progress to Redis, and FastAPI relays it to the browser over SSE. On
+in well under a second. The reconciler's next scan picks the run up, polls `retrieve()` on a
+backoff schedule and writes progress to the run document; FastAPI watches that collection with a
+MongoDB change stream and relays updates to the browser over SSE. On
 `succeeded`, the reconciler pages through `list_results()`, mirrors each `artifacts.structure.url`
 into S3 **before its `url_expires_at`**, writes a `candidate` document per design, and marks the
 run complete. Ranking is computed on read, from stored metrics.
@@ -222,15 +221,17 @@ needs to know a job can take hours.
 | Agents | `openai-agents` | 0.24.0 | Brief's choice; gives us agents-as-tools, typed context, guardrails and tracing for free | LangGraph (more machinery than this needs), bespoke loop |
 | Voice | OpenAI Realtime, `gpt-realtime-2.1`, browser WebRTC | GA | Lowest-latency path; ephemeral tokens keep our key server-side | Python SDK `RealtimeAgent` (WebSocket only, no WebRTC — but see §7 fallback) |
 | Database | MongoDB Atlas | 7.x | Brief's choice; document shape fits the deeply nested, schema-drifting Boltz payloads, which we store verbatim; **and** `openai-agents` ships `MongoDBSession`, so chat history needs no bespoke layer | Postgres+JSONB (good fit, but would duplicate the session store) |
-| Queue | **ARQ** + Redis | 0.26+ | Async-native, tiny, redis-only — matches async FastAPI with no thread-pool bridging. Our worker is almost entirely `await`ing HTTP polls | **Celery** (brief's suggestion; sync-first, heavier, awkward from async FastAPI for a purely I/O-bound poller) |
-| Cache / pub-sub | Redis | 7.x | Caches UniProt/PDB/PubMed; carries job progress to SSE | — |
+| Background work | **Plain asyncio scan loop** over MongoDB — no queue, no broker | — | We have exactly one kind of background work: poll runs that are in progress. That is a *scan*, and Mongo already holds the truth about which runs need polling (index `design_runs(status, updated_at)`). A scan is also **more** robust than a queue: a dropped queue message would leave a run un-polled forever, while a scan retries by construction. | **Celery** and **ARQ** + Redis (a broker buying nothing here); see ADR-003 |
+| Cache | **MongoDB TTL collection** | — | One collection, `expires_at` TTL index, for UniProt/PDB/PubMed responses. No second datastore to operate | Redis (extra service for a cache this small) |
+| Progress → browser | **MongoDB change streams** → SSE | — | The API watches `design_runs` and fans out in-process to SSE clients. Works across any number of API instances, since every instance sees the stream. Supported on Atlas free clusters | Redis pub/sub; polling from the client |
 | Object storage | Cloudflare R2 (S3 API) | — | Zero egress fees, and we re-serve structures to every viewer; S3-compatible so swappable | AWS S3 (egress cost) |
 | Hosting | Vercel (web) + **Fly.io** (API + worker) | — | Brief's split; Fly for long-lived worker + WebSocket/SSE, cheap, multi-region close to African users | Railway (fine alternative, connector unauthorised here), Lambda (SSE + long polling awkward) |
 | Reports | WeasyPrint | — | Server-side HTML→PDF, no headless browser | Puppeteer (heavy) |
 
-> **Two deviations from the brief, both deliberate.** Celery → ARQ (async fit), and a reconciler
-> instead of a worker that owns the whole job (the job lives in Boltz, not in us). Both are
-> recorded as ADR-003 and ADR-004 in §17.
+> **Two deviations from the brief, both deliberate.** No Celery and **no Redis at all** — the
+> long-running job lives in *Boltz*, so our background work is a status scan, which MongoDB already
+> serves better than a queue would. And a reconciler instead of a worker owning the whole job.
+> Recorded as ADR-003 and ADR-004 in §17.
 
 ---
 
@@ -269,7 +270,8 @@ instead of silently producing `None` metrics.
 ### 6.2 `science_sources` — UniProt / RCSB / PubMed clients
 
 **Responsibility.** Target discovery and evidence. One module per source, a shared
-`CachedHTTPClient` with Redis caching, jittered retry, and a token-bucket limiter.
+`CachedHTTPClient` backed by a MongoDB TTL collection, with jittered retry and a token-bucket
+limiter.
 
 **Interfaces.** `search_proteins(organism, query, reviewed_only) -> [ProteinTarget]`,
 `get_structures(uniprot_accession) -> [StructureRef]`, `get_cif_url(pdb_id) -> str`,
@@ -283,13 +285,21 @@ a scientific tool.
 **PubMed specifics.** 3 req/s unkeyed (10 keyed). Token bucket at 2.5 req/s, `tool=` and `email=`
 on every call, 24 h cache.
 
-### 6.3 `jobs` — ARQ reconciler
+### 6.3 `jobs` — the reconciler
 
 **Responsibility.** The only component that polls a running Boltz job.
 
-Per run: poll `get_design_status` on a backoff ladder (10 s for the first minute, then 30 s, then
-60 s, capped), publish `{status, num_proteins_generated, pct}` to Redis channel
-`run:{run_id}`, and on `succeeded` run the **harvest** step.
+A single asyncio loop in the worker process. Every 10 s it scans
+`design_runs.find({status: {$in: ["pending", "running"]}})` — served by the
+`design_runs(status, updated_at)` index — and for each run due a check (per its own backoff ladder:
+10 s for the first minute, then 30 s, then 60 s, capped) calls `get_design_status`, writes
+`{status, num_proteins_generated, pct}` onto the run document, and on `succeeded` runs the
+**harvest** step.
+
+There is no queue and no broker. The run documents *are* the work list, which means a worker
+restart loses nothing and needs no recovery logic: the next scan simply sees the same unfinished
+runs. Concurrent workers are safe via a `claimed_until` lease field on each run, so this scales to
+more than one worker without introducing a broker.
 
 **Harvest** is the critical, failure-prone step:
 1. Page through `iter_design_results`.
@@ -557,6 +567,7 @@ Collections and the fields that carry weight:
 | `exports` | `_id`, `project_id`, `candidate_ids[]`, `storage_key`, `provenance`, `created_at` |
 | `audit_events` | `project_id`, `actor`, `action`, `service`, `params`, `cost_usd`, `job_id`, `at` |
 | `agent_sessions` | managed by `openai-agents` `MongoDBSession` |
+| `source_cache` | `_id` (source + normalised query), `payload`, `fetched_at`, `expires_at` **(TTL index)** — replaces Redis as the UniProt/PDB/PubMed cache |
 
 **Design notes.**
 - `candidates.raw` keeps the verbatim Boltz payload. Storage is cheap; a re-parse after an SDK
@@ -569,7 +580,10 @@ Collections and the fields that carry weight:
 `design_runs(project_id, status)`, `design_runs(status, updated_at)` *(the reconciler's scan —
 this one is load-bearing)*, `design_runs(idempotency_key)` unique,
 `candidates(run_id, metrics.binding_confidence desc)`, `candidates(project_id)`,
-`audit_events(project_id, at desc)`.
+`audit_events(project_id, at desc)`, `source_cache(expires_at)` **TTL**.
+
+Change streams require a replica set. Atlas is always one, including free clusters; local dev runs
+MongoDB as a single-node replica set (§14).
 
 **Retention.** Structures and archives kept while the project lives, deleted with it.
 `delete_data` is called on Boltz for the corresponding runs on project deletion, so deletion is
@@ -661,7 +675,7 @@ sequenceDiagram
     participant W as Web
     participant API as FastAPI
     participant B as Boltz API
-    participant Q as ARQ reconciler
+    participant Q as Reconciler
     participant S3 as R2
     participant DB as MongoDB
 
@@ -734,7 +748,7 @@ records so logout is real. Every project-scoped query filters on `user_id` **in 
 never after the fetch. Authorisation is re-checked on the voice relay path, where the request
 arrives from a browser we treat as hostile.
 
-**Secrets.** `BOLTZ_API_KEY`, `OPENAI_API_KEY`, `MONGODB_URI`, `REDIS_URL`, R2 credentials live in
+**Secrets.** `BOLTZ_API_KEY`, `OPENAI_API_KEY`, `MONGODB_URI`, R2 credentials live in
 Fly secrets / Vercel env. **No science key is ever sent to the browser.** The only credential that
 reaches the client is a 600-second OpenAI ephemeral Realtime key, scoped to one session.
 `.env.example` lists every variable; `.gitignore` covers `.env*`. A pre-commit secret scan runs in CI.
@@ -774,11 +788,18 @@ full sequences redacted from logs (a sequence is the user's research output, not
 grouped with `with trace("...")` per user turn and tagged with the project id.
 
 **Metrics.** Run submission/success/failure rates; harvest success and **mirror-before-expiry
-success rate** (the one that silently destroys data if it rots); queue depth and oldest job age;
-external-service error rates and circuit state; spend per project per day; agent tokens, cost and
+success rate** (the one that silently destroys data if it rots); **reconciler scan lag** (age of the
+oldest unfinished run since its last poll) and scan duration; change-stream health and resume-token
+staleness; external-service error rates and circuit state; spend per project per day; agent tokens, cost and
 guardrail trip rate; SSE connection count.
 
-**Alerts.** Any mirror failure after retries. Queue oldest-job > 30 min. Spend > 80% of a project
+**Change-stream failure mode.** A change stream can drop or fall behind. It is treated as an
+*optimisation for liveness, not a source of truth*: on SSE connect the client is always sent the
+current run state read directly from MongoDB, and the stream only pushes subsequent deltas. If the
+stream dies, the API resumes it from its resume token, and clients fall back to a 15 s re-read. So
+a broken change stream makes progress updates slower, never wrong or missing.
+
+**Alerts.** Any mirror failure after retries. Reconciler scan lag > 30 min. Spend > 80% of a project
 budget, and any spend anomaly day-over-day. Guardrail trip rate > 20% (prompt regression).
 Circuit open > 5 min.
 
@@ -793,7 +814,7 @@ milestone — a backup nobody has restored is a hypothesis.
 |---|---|---|
 | Unit | `ranking` (pure — property tests: monotonicity in each weight, correct inversion of `min_interaction_pae`, correct weight redistribution when `ipsae_min` is missing, `generic` results excluded), cost maths, budget arithmetic, claim-lint | CI, every push |
 | Contract | `boltz_adapter` against recorded fixtures of every response shape; **fails loudly on an SDK field rename** | CI |
-| Integration | API + Mongo + Redis via testcontainers; science sources via recorded HTTP cassettes; full reconcile→harvest cycle against a fake engine, including mid-harvest crash and resume | CI |
+| Integration | API + Mongo (single-node replica set) via testcontainers; science sources via recorded HTTP cassettes; full reconcile→harvest cycle against a fake engine, including mid-harvest crash and resume | CI |
 | AI evals | §7 eval plan: golden path, guardrails (both directions), tool selection, grounding | CI on prompt/tool changes; nightly |
 | E2E | Playwright: full 7-step workflow against a seeded KPC-2 project with a stubbed engine; Mol* renders; export downloads and re-parses | CI on PR to main |
 | Motion QA | `motion-check.mjs` per `motion-web`, screenshots reviewed | before any UI merge |
@@ -808,15 +829,15 @@ their failure modes, including the unhappy ones.
 
 | Env | Web | API + worker | Data |
 |---|---|---|---|
-| dev | `next dev` | `uvicorn --reload`, ARQ worker | local Mongo + Redis (docker compose), R2 dev bucket |
-| preview | Vercel preview per PR | Fly preview app | shared preview Atlas + Upstash |
-| prod | Vercel | Fly (1 API + 1 worker machine) | Atlas M10, Upstash, R2 |
+| dev | `next dev` | `uvicorn --reload`, worker process | local Mongo as a **single-node replica set** (docker compose; required for change streams), R2 dev bucket |
+| preview | Vercel preview per PR | Fly preview app | shared preview Atlas, R2 |
+| prod | Vercel | Fly (1 API + 1 worker machine) | Atlas M10, R2 |
 
 **CI/CD.** GitHub Actions: lint (ruff, eslint) → typecheck (mypy strict, tsc) → unit → contract →
 integration → evals → build → E2E → deploy. `main` is protected; the `ship-verify` gate must pass.
 
 **Env vars** (full list in `.env.example`): `BOLTZ_API_KEY`, `BOLTZ_WORKSPACE_ID`, `OPENAI_API_KEY`,
-`OPENAI_REALTIME_MODEL`, `OPENAI_AGENTS_DISABLE_TRACING`, `MONGODB_URI`, `REDIS_URL`,
+`OPENAI_REALTIME_MODEL`, `OPENAI_AGENTS_DISABLE_TRACING`, `MONGODB_URI`,
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `SESSION_SECRET`,
 `NCBI_EMAIL`, `NCBI_API_KEY`, `APP_BASE_URL`, `DEFAULT_PROJECT_BUDGET_USD`.
 
@@ -827,14 +848,13 @@ integration → evals → build → E2E → deploy. `main` is protected; the `sh
 | Vercel Hobby/Pro | $0–20 |
 | Fly (API + worker, shared-cpu-1x) | ~$10 |
 | Atlas M10 | ~$9 (M0 free in dev) |
-| Upstash Redis | ~$5 |
 | Cloudflare R2 (50 GB, no egress fee) | ~$1 |
-| **Infra total** | **~$25–45/month** |
+| **Infra total** | **~$20–40/month** |
 | OpenAI (agents + modest voice) | ~$30–50/month |
 | **Boltz, during the build** | **$0** — the whole build fits inside 200 free predictions/month (§2) |
 | Boltz, real research use after launch | ~$0.05/design; a serious 10,000-design campaign ~$500 |
 
-Infra can also sit near $0 while we build: Atlas M0, Upstash and R2 free tiers, Vercel Hobby and a
+Infra can also sit near $0 while we build: Atlas free cluster and R2 free tier, Vercel Hobby and a
 single small Fly machine. The paid tiers above are for launch, not development.
 
 ---
@@ -845,7 +865,7 @@ Each is independently shippable, ends green, and gets pushed (per `git-cadence`)
 
 | # | Milestone | Acceptance criteria |
 |---|---|---|
-| **M0** | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo/Redis, CI green, auth + projects CRUD, deployed skeleton at a real URL |
+| **M0** | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo as a single-node replica set, CI green, auth + projects CRUD, deployed skeleton at a real URL |
 | **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **a real 10-design run against the live API succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
 | **M2** | Target discovery | F1–F3: UniProt/RCSB/PubMed with caching, rate limits and degraded-mode banner; target persisted with evidence; epitope residues selectable by number |
 | **M3** | Design runs + reconciler | F4–F7, F15–F17: estimate → confirm → submit → poll → **harvest with mirroring**; SSE progress; crash-resume proven in an integration test |
@@ -893,7 +913,7 @@ API behaves differently from its generated types, we want to know in week one, n
 |---|---|---|---|---|
 | 001 | 2026-11-10 | **BoltzProt-1 via hosted Boltz API** for de novo design | Boltz-2 cannot design binders; BoltzGen needs an A100 + 39 GB weights | Self-hosted BoltzGen; NVIDIA NIM (no design model) |
 | 002 | 2026-11-10 | Keep a `DesignEngine` interface with a `BoltzGenLocalEngine` stub | On-prem is a real requirement for some African institutions | Hard-coding the hosted client |
-| 003 | 2026-11-10 | **ARQ instead of Celery** | Async-native, Redis-only; our worker is pure `await`-on-HTTP | Celery (brief's suggestion; sync-first, heavier) |
+| 003 | 2026-11-10 | **No queue and no Redis.** A MongoDB scan loop replaces the broker; a TTL collection replaces the cache; change streams replace pub/sub | Our only background work is "poll runs that are in progress", which is a scan, not a queue — and Mongo already holds that truth. A dropped queue message would hang a run forever; a scan retries by construction. Removes a whole service | Celery (brief's suggestion), ARQ + Redis (earlier draft of this document) |
 | 004 | 2026-11-10 | **Reconciler pattern** — the job lives in Boltz; we poll and harvest | Agent tools must return in seconds; no request may block on a job | Worker owning the computation; synchronous `client...run()` |
 | 005 | 2026-11-10 | **Mirror every artifact to R2 on completion** | `url_expires_at` — Boltz URLs are presigned and expire | Storing Boltz URLs (data loss) |
 | 006 | 2026-11-10 | **Agents-as-tools, not handoffs** | The orchestrator must compose specialist output, which a handoff loses | Handoff topology; one mega-agent |
