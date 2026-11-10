@@ -75,8 +75,15 @@ implying otherwise, and that drift is the single biggest reputational risk in th
 
 ### Assumptions and constraints
 - **No fixed deadline.** Sequenced as milestones (§15); each milestone is independently shippable.
-- Boltz API key and OpenAI API key are available. Boltz free tier is **200 predictions/month**,
-  which is ~2 runs of 100 designs — so cost control is a v1 feature, not a nicety (§7 budget).
+- Boltz API key and OpenAI API key are available.
+- **The build runs on the Boltz free tier.** 200 predictions/month; building the whole platform
+  needs ~150 total (30 to prove the live API in M1, ~20 to capture fixtures, 100 for one good demo
+  run). All other development and CI replays recorded fixtures and costs nothing.
+  See [research §2](docs/research.md). *Unverified:* whether the 200/month applies to API usage or
+  only to Boltz Lab — checked with `auth.me()` / `admin/usage` in M1, both free calls.
+- Cost control is still a v1 feature, for two reasons that are **not** our dev spend: real research
+  campaigns are 10,000+ designs, and `num_proteins` maxes at 1,000,000, making one typo a
+  $50,000 call. It is blast-radius control plus a feature for researchers (§7 budget).
 - Python **3.12** via `uv` (system Python is 3.9; `openai-agents` needs ≥3.10).
 - No GPU. All science is hosted-API.
 - Target users are often on constrained bandwidth. The web app must work on a 3G connection and
@@ -470,7 +477,9 @@ class AppContext:
 | Voice, per minute | — | ~$0.10 (`gpt-realtime-2.1`: $32/$64 per 1M audio tokens) |
 
 Per-project budget default **$25**, hard-capped by a Boltz **workspace spending limit** set out of
-band. Two independent limits, because a bug in one should not be able to empty the account.
+band, plus a UI ceiling on `num_proteins`. Three independent limits, because `num_proteins` accepts
+up to 1,000,000 and a single misplaced digit is a $50,000 call that cannot be undone. During the
+build these limits are never reached — the whole build fits in the free tier (§2).
 
 ### Voice
 
@@ -822,7 +831,11 @@ integration → evals → build → E2E → deploy. `main` is protected; the `sh
 | Cloudflare R2 (50 GB, no egress fee) | ~$1 |
 | **Infra total** | **~$25–45/month** |
 | OpenAI (agents + modest voice) | ~$30–50/month |
-| Boltz | **usage-based** — 200 free predictions/month, then ~$5 per 100-design KPC-2 run |
+| **Boltz, during the build** | **$0** — the whole build fits inside 200 free predictions/month (§2) |
+| Boltz, real research use after launch | ~$0.05/design; a serious 10,000-design campaign ~$500 |
+
+Infra can also sit near $0 while we build: Atlas M0, Upstash and R2 free tiers, Vercel Hobby and a
+single small Fly machine. The paid tiers above are for launch, not development.
 
 ---
 
@@ -833,7 +846,7 @@ Each is independently shippable, ends green, and gets pushed (per `git-cadence`)
 | # | Milestone | Acceptance criteria |
 |---|---|---|
 | **M0** | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo/Redis, CI green, auth + projects CRUD, deployed skeleton at a real URL |
-| **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **a real 10-design run against the live API succeeds end to end**; cost estimate matches the published tiers. *This is the riskiest milestone and it is first on purpose.* |
+| **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **a real 10-design run against the live API succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
 | **M2** | Target discovery | F1–F3: UniProt/RCSB/PubMed with caching, rate limits and degraded-mode banner; target persisted with evidence; epitope residues selectable by number |
 | **M3** | Design runs + reconciler | F4–F7, F15–F17: estimate → confirm → submit → poll → **harvest with mirroring**; SSE progress; crash-resume proven in an integration test |
 | **M4** | Structures + ranking | F8–F10: Mol* viewer with chain colouring and epitope highlight; deterministic ranking with editable weights; per-candidate explanation with percentiles |
@@ -853,7 +866,8 @@ API behaves differently from its generated types, we want to know in week one, n
 |---|---|---|
 | `boltz-api` is Stainless-generated and will churn; there is **no public API reference** | High | Pin `==0.50.0`, single adapter, contract tests, fixtures. Ask Boltz for a reference URL and a changelog. |
 | BoltzProt-1's real-world output quality is unverified by us | High | M1 runs a real campaign and we *look at the results* before building on top. Benchmark claims in research are Boltz's own. |
-| Design cost scales past the free tier fast | Medium | Budgets, estimates, spending limit, small defaults |
+| A bug or typo spends real money — `num_proteins` accepts up to 1,000,000 | Medium | Confirmed estimate, per-project budget, Boltz workspace spending limit, UI cap on `num_proteins`. (The build itself fits the free tier.) |
+| The 200/month free tier may not apply to **API** usage, only Boltz Lab | Medium | Verified in M1 with the free `auth.me()` / `admin/usage` calls, before any sizeable run |
 | Hosted affinity may not correspond to the written pose ([research §1](docs/research.md)) | Medium | Never present affinity as predicted potency; label as model score |
 | Voice tool relay complexity | Medium | WebSocket fallback designed in; voice is M7, not on the critical path |
 | Over-claiming by the assistant damages scientific credibility | **High** | Scientific Review as a non-bypassable guardrail + claim-lint + limitations-first reports |

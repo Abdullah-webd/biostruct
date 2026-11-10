@@ -175,11 +175,41 @@ Priced per molecule, and for proteins by crop size:
 ADME: $0.01/molecule. Boltz Lab "Professional": $0 subscription, **up to 200 free predictions per
 month**, then usage-based. No published rate limits.
 
-**Cost implication we must design around.** `num_proteins` has a floor of 10, but a *useful*
-campaign is thousands of designs. KPC-2 is ~293 aa, so a nanobody–KPC-2 complex lands in the
-257–512 crop tier at ~$0.05/design. 1,000 designs ≈ **$50 per run**. The 200/month free tier is
-*two* 100-design runs. Therefore: `estimate_cost` before every run, show the user the figure and
-make them confirm, set a workspace spending limit, and default the demo to a small `num_proteins`.
+> ⚠️ **Open question.** The "200 free predictions" line appears on the *Boltz Lab* plan table
+> (the web product), not on the API page. Whether it covers **API** usage is **unverified**.
+> Resolve before relying on it: `client.auth.me()` and `GET /compute/v1/admin/usage` will say,
+> and both are free to call. Until then, treat the free tier as probable but unconfirmed.
+
+### What this actually costs us, by phase
+
+`num_proteins` has a floor of **10** and a ceiling of **1,000,000**. KPC-2 is ~293 aa, so a
+nanobody–KPC-2 complex lands in the 257–512 crop tier at ~**$0.05/design**.
+
+| Phase | Predictions needed | Cost |
+|---|---|---|
+| M1 — prove the live API matches its types | 3 runs × 10 designs = **30** | free tier |
+| Capture fixtures for every response shape (once) | ~**20** | free tier |
+| All other dev + CI, forever | **0** — replayed from fixtures | free |
+| One good demo run | **100** | free tier |
+| **Total to build the whole platform** | **~150** | **$0** |
+
+**So the build is free.** 200/month covers it with room to spare, provided development replays
+recorded fixtures instead of hitting the API — which the contract-test design already requires for
+determinism, independent of cost.
+
+Money appears in exactly two places, and neither is the build:
+
+1. **Real research use.** BoltzGen's own README recommends 10,000–60,000 designs for a genuine
+   campaign. At 200/month free that is decades. Any researcher doing real work pays, so the
+   platform needs budget and estimate features *as product features for them* — not for us.
+2. **Accidents.** `num_proteins` max is 1,000,000. One misplaced digit is **1,000,000 × $0.05 =
+   $50,000**. This, not our dev spend, is the real reason for a hard spending limit, a mandatory
+   confirmed estimate, and a per-project budget ceiling. A UI cap on `num_proteins` is cheap
+   insurance against a mistake that cannot be undone.
+
+Therefore: `estimate_cost` before every run, explicit human confirmation, a Boltz **workspace
+spending limit** set out of band as a second independent backstop, a UI ceiling on `num_proteins`,
+and small defaults during development.
 
 ---
 
@@ -312,7 +342,7 @@ discovery, ranking transparency, interpretation and honesty. Those must be excel
 | 1 | Boltz-2 can't design binders | Use BoltzProt-1 via hosted API (§1) |
 | 2 | Artifact URLs expire (`url_expires_at`) | Mirror every artifact to our own object storage on job completion |
 | 3 | A design run takes minutes–hours; `num_proteins` max is 1,000,000 | Agent tools start jobs and return a job id immediately; a reconciler polls |
-| 4 | $0.05/design × 1,000 designs = $50/run; free tier is 200/month | `estimate_cost` + explicit user confirmation + workspace spending limit + per-project budget |
+| 4 | `num_proteins` max is 1,000,000 — one typo is a $50,000 call. (The *build* itself fits in the free tier; see §2.) | `estimate_cost` + confirmed estimate + workspace spending limit + per-project budget + UI cap on `num_proteins` |
 | 5 | No public API reference; SDK is Stainless-generated and will churn | Pin `boltz-api==0.50.0`; isolate behind one adapter module; contract-test against recorded fixtures |
 | 6 | Agents SDK tracing is on by default and egresses content to OpenAI | Explicit opt-in per deployment; default off for self-hosted installs |
 | 7 | Browser WebRTC surfaces tool calls client-side | Server-side tool bridge; the browser never holds a Boltz or OpenAI standard key |

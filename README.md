@@ -77,9 +77,14 @@ apps/api            FastAPI backend + worker    (M0)
 
 ## Cost note
 
-Boltz is usage-based: ~**$0.05 per design** at the KPC-2 crop size, so a 100-design run is ~$5. The
-free tier is 200 predictions/month. The platform therefore treats cost control as a feature —
-every run shows an estimate and requires confirmation, and every project has a hard budget.
+**Building this costs nothing.** Boltz's free tier is 200 predictions/month and the whole build
+needs ~150: 30 to prove the live API behaves as documented, ~20 to record test fixtures, and 100 for
+one good demo run. All other development and CI replays those fixtures and never calls the API.
+
+Cost control is still a built-in feature, for two reasons that have nothing to do with our build:
+a real research campaign is 10,000+ designs at ~$0.05 each, and `num_proteins` accepts up to
+1,000,000 — so one misplaced digit would be a $50,000 call. Every run shows an estimate and requires
+confirmation, every project has a hard budget, and the account carries an independent spending limit.
 
 ## Licence
 
