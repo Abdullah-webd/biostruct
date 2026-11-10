@@ -1,0 +1,44 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.vercel
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.egg-info/
+
+# Ship gate / QA artifacts
+.verify/
+playwright-report/
+test-results/
+motion-shots/
+
+# Local data
+data/
+*.sqlite3
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
