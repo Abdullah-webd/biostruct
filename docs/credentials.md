@@ -13,7 +13,7 @@ Open the `.env` file in the project root (already created, already gitignored) a
 after the `=`. No quotes, no spaces.
 
 ```
-BOLTZ_API_KEY=bz_xxxxxxxxxxxx
+BOLTZ_API_KEY=sk_bc_ws_test_xxxxxxxxxxxx
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 ```
 
@@ -124,34 +124,56 @@ balance will fail at the voice milestone rather than earlier.
 
 ---
 
-## Not needed until we deploy (milestone M0 deploy / M8)
+## Not needed until we deploy
 
-Local development needs **no external accounts at all** — MongoDB runs in Docker, and structure
-files go to local disk (`STORAGE_BACKEND=local`). These only matter when the app goes on the
-internet:
+Local development needs **no external accounts at all** — MongoDB runs in Docker and structure
+files go to local disk (`STORAGE_BACKEND=local`). These only matter when the app goes online:
 
-| Service | For | Cost | Note |
+| Service | For | Cost | How |
 |---|---|---|---|
-| **MongoDB Atlas** | hosted database | Free cluster is enough to start | Free clusters support change streams (we need them), capped at 100 ops/sec |
-| **Cloudflare R2** | structure file storage | 10 GB + 1M writes + 10M reads/month free, **egress free** | ⚠️ Requires completing an **R2 subscription checkout** in the dashboard before you can create a token. Their docs don't say whether a card is required — worth checking at that point. This is why dev uses local disk instead. |
-| **Vercel** | frontend hosting | Hobby tier free | `vercel login`, no key to paste |
-| **Fly.io** | backend + worker hosting | ~$10/mo | `fly auth login`, no key to paste |
+| **Railway** | API + worker + object storage | ~$10–15/mo | `railway login` (creates an account on the fly) — no key to paste |
+| **MongoDB Atlas** | hosted database | Free cluster to start | Account + a database user; gives a `MONGODB_URI` |
+| **Vercel** | frontend hosting | Hobby free | `vercel login` — no key to paste |
 
-### Cloudflare R2, when we get there
+### Railway
 
-1. Dashboard → **Storage & databases → R2 → Overview**
-2. Complete the **R2 subscription** checkout (required before tokens can be made)
-3. **Account Details → API Tokens → Manage → Create Account API token**
-4. Permission: **Object Read & Write**, scoped to our bucket only — not Admin
-5. Record the **Access Key ID** and **Secret Access Key**. The secret is shown **once**.
-6. Account ID comes from the dashboard separately.
+Railway holds three things in one project, so there is no extra storage vendor:
 
-S3-compatible endpoint: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
+| Service | What |
+|---|---|
+| `api` | FastAPI |
+| `worker` | the reconciler |
+| `structures` | a **Bucket** — S3-compatible object storage |
 
-Egress being free is the reason we picked R2 — we re-serve the same structure files to every
-viewer, which on AWS S3 would be billed every time.
+Sign in and deploy in one step from the project root:
 
----
+```bash
+railway up      # signs you in if needed, creates the project, deploys
+```
+
+Then create the bucket and read its credentials:
+
+```bash
+railway add --service worker --json
+railway bucket credentials --bucket structures --json
+```
+
+That returns an S3 endpoint, access key id and secret, which map onto `S3_ENDPOINT_URL`,
+`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`. Set them as Railway environment variables
+rather than in a local file.
+
+> The Railway MCP connector is not authorised in this workspace yet. It isn't required — the CLI
+> does everything we need. To enable it anyway, authorise Railway in your claude.ai connector
+> settings.
+
+### MongoDB Atlas
+
+Create a **free cluster**, add a database user, allow network access, and copy the connection
+string into `MONGODB_URI`.
+
+We use Atlas rather than Railway's managed MongoDB for one specific reason: **change streams
+require a replica set**, and Atlas always runs as one. Railway's Mongo is a single container and its
+replica-set support is unverified — we check in M0, and if it works we can consolidate onto Railway.
 
 ## Generated, not obtained
 

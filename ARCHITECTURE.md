@@ -1,10 +1,9 @@
-# Baobab — AI-Powered Therapeutic Protein Design Platform
+# Biostruct — AI-Powered Therapeutic Protein Design Platform
 
-> **Status: Draft v1 · awaiting approval · 2026-11-10**
+> **Status: v1 · APPROVED 2026-11-11 · build in progress**
 >
 > Nothing in `apps/` is built until this document is approved.
-> *"Baobab"* is a working name — a tree that stores water through drought. Easy to change; it
-> appears only in `package.json`, the README and UI copy.
+> Approved 2026-11-11. Name: **Biostruct**. Repo: **public**. Deployment: **Railway**.
 
 Every technical claim here traces to [`docs/research.md`](docs/research.md). The Boltz API details
 were verified by installing `boltz-api==0.50.0` and reading its generated types, because Boltz
@@ -145,7 +144,7 @@ graph TB
         UI
     end
 
-    subgraph "Backend — Fly.io / Railway"
+    subgraph "Backend — Railway"
         API[FastAPI<br/>REST + SSE]
         ORCH[Agent orchestrator<br/>openai-agents]
         REC[Job reconciler<br/>scan loop]
@@ -154,7 +153,7 @@ graph TB
 
     subgraph Data
         MONGO[(MongoDB Atlas<br/>projects, targets, candidates,<br/>sessions, source cache TTL)]
-        S3[(S3 / R2<br/>mmCIF, archives, reports)]
+        S3[(Railway Bucket · S3 API<br/>mmCIF, archives, reports)]
     end
 
     subgraph "External science"
@@ -220,12 +219,12 @@ needs to know a job can take hours.
 | Science API | **`boltz-api`** | **pinned `==0.50.0`** | Only route to BoltzProt-1 de novo design ([research §1–2](docs/research.md)). Base URL `https://api.boltz.bio`, auth header `x-api-key`. Docs at `api.boltz.com/docs`; keys from `api.boltz.com/console` | Self-hosted BoltzGen (needs A100 + 39 GB weights); NVIDIA NIM (no design model) |
 | Agents | `openai-agents` | 0.24.0 | Brief's choice; gives us agents-as-tools, typed context, guardrails and tracing for free | LangGraph (more machinery than this needs), bespoke loop |
 | Voice | OpenAI Realtime, `gpt-realtime-2.1`, browser WebRTC | GA | Lowest-latency path; ephemeral tokens keep our key server-side | Python SDK `RealtimeAgent` (WebSocket only, no WebRTC — but see §7 fallback) |
-| Database | MongoDB Atlas | 7.x | Brief's choice; document shape fits the deeply nested, schema-drifting Boltz payloads, which we store verbatim; **and** `openai-agents` ships `MongoDBSession`, so chat history needs no bespoke layer | Postgres+JSONB (good fit, but would duplicate the session store) |
+| Database | MongoDB **Atlas** (not Railway's managed Mongo) | 7.x | Brief's choice; document shape fits the deeply nested, schema-drifting Boltz payloads, which we store verbatim; **and** `openai-agents` ships `MongoDBSession`, so chat history needs no bespoke layer. **Atlas, because change streams require a replica set** and Atlas always is one; Railway's managed Mongo is a single container, so replica-set support is unverified (M0 checks it — if it works we can consolidate) | Railway managed Mongo (replica set unverified); Postgres+JSONB (good fit, but would duplicate the session store) |
 | Background work | **Plain asyncio scan loop** over MongoDB — no queue, no broker | — | We have exactly one kind of background work: poll runs that are in progress. That is a *scan*, and Mongo already holds the truth about which runs need polling (index `design_runs(status, updated_at)`). A scan is also **more** robust than a queue: a dropped queue message would leave a run un-polled forever, while a scan retries by construction. | **Celery** and **ARQ** + Redis (a broker buying nothing here); see ADR-003 |
 | Cache | **MongoDB TTL collection** | — | One collection, `expires_at` TTL index, for UniProt/PDB/PubMed responses. No second datastore to operate | Redis (extra service for a cache this small) |
 | Progress → browser | **MongoDB change streams** → SSE | — | The API watches `design_runs` and fans out in-process to SSE clients. Works across any number of API instances, since every instance sees the stream. Supported on Atlas free clusters | Redis pub/sub; polling from the client |
-| Object storage | **`StorageBackend` interface**: local disk in dev, Cloudflare R2 in prod | — | R2 has zero egress fees and we re-serve structures to every viewer. But R2 requires completing a subscription checkout before tokens can be created, so **dev must not depend on it** — `STORAGE_BACKEND=local` means a contributor needs no Cloudflare account to build the whole platform | AWS S3 (egress cost); R2-only (blocks local dev behind a checkout) |
-| Hosting | Vercel (web) + **Fly.io** (API + worker) | — | Brief's split; Fly for long-lived worker + WebSocket/SSE, cheap, multi-region close to African users | Railway (fine alternative, connector unauthorised here), Lambda (SSE + long polling awkward) |
+| Object storage | **`StorageBackend` interface**: local disk in dev, **Railway Bucket** (S3-compatible) in prod | — | Lives in the same Railway project as the services, so credentials come from `railway bucket credentials` and there is no extra vendor, no separate signup and no subscription checkout. `STORAGE_BACKEND=local` keeps dev free of any cloud account | Cloudflare R2 (another vendor, and its token creation is gated behind a subscription checkout); AWS S3 (egress cost) |
+| Hosting | Vercel (web) + **Railway** (API + worker + Bucket) | — | User's choice. One project holds the API service, the worker service and the object-storage Bucket, with per-environment variables and IaC in `.railway/`. Long-lived processes suit our SSE + reconciler loop, which serverless does not | Fly.io (earlier draft); Lambda (SSE and minute-long polling awkward) |
 | Reports | WeasyPrint | — | Server-side HTML→PDF, no headless browser | Puppeteer (heavy) |
 
 > **Two deviations from the brief, both deliberate.** No Celery and **no Redis at all** — the
@@ -827,22 +826,36 @@ their failure modes, including the unhappy ones.
 
 ## 14. Deployment & environments
 
+**Railway layout.** One Railway **project**, `biostruct`, with two **environments**
+(`staging`, `production`). Each environment holds:
+
+| Railway service | What it runs | Notes |
+|---|---|---|
+| `api` | `uvicorn` FastAPI | public domain, holds the SSE connections |
+| `worker` | the reconciler loop | no domain; must not sleep |
+| `structures` (Bucket) | mmCIF, archives, exports | S3-compatible; creds from `railway bucket credentials` |
+
+Config lives in source control as Railway IaC (`.railway/railway.py`), so environments are
+reproducible rather than hand-clicked. Variables are set per environment.
+
 | Env | Web | API + worker | Data |
 |---|---|---|---|
 | dev | `next dev` | `uvicorn --reload`, worker process | local Mongo as a **single-node replica set** (docker compose; required for change streams), structures on **local disk** — no cloud account needed |
-| preview | Vercel preview per PR | Fly preview app | shared preview Atlas, R2 |
-| prod | Vercel | Fly (1 API + 1 worker machine) | Atlas M10, R2 |
+| staging | Vercel preview per PR | Railway `staging` environment | Atlas free cluster, staging Bucket |
+| prod | Vercel | Railway `production` environment (`api` + `worker`) | Atlas M10, production Bucket |
 
 **CI/CD.** GitHub Actions: lint (ruff, eslint) → typecheck (mypy strict, tsc) → unit → contract →
 integration → evals → build → E2E → deploy. `main` is protected; the `ship-verify` gate must pass.
+Railway deploys from GitHub on merge to `main`; a deploy is only reported successful after observing
+`SUCCESS` for that specific deployment id, never on command exit alone.
 
 **Credentials.** Only two are required to build: `BOLTZ_API_KEY` and `OPENAI_API_KEY`. Everything
 else has a working local default or is deploy-only. See [docs/credentials.md](docs/credentials.md).
 
 **Env vars** (full list in `.env.example`): `BOLTZ_API_KEY`, `BOLTZ_WORKSPACE_ID`, `OPENAI_API_KEY`,
 `OPENAI_REALTIME_MODEL`, `OPENAI_AGENTS_DISABLE_TRACING`, `MONGODB_URI`,
-`STORAGE_BACKEND`, `STORAGE_LOCAL_PATH`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `SESSION_SECRET`,
+`STORAGE_BACKEND`, `STORAGE_LOCAL_PATH`, `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`,
+`S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `SESSION_SECRET`,
 `NCBI_EMAIL`, `NCBI_API_KEY`, `APP_BASE_URL`, `DEFAULT_PROJECT_BUDGET_USD`.
 
 **Monthly cost estimate (v1 scale).**
@@ -850,10 +863,10 @@ else has a working local default or is deploy-only. See [docs/credentials.md](do
 | Item | Cost |
 |---|---|
 | Vercel Hobby/Pro | $0–20 |
-| Fly (API + worker, shared-cpu-1x) | ~$10 |
-| Atlas M10 | ~$9 (M0 free in dev) |
-| Cloudflare R2 (50 GB, no egress fee) | ~$1 |
-| **Infra total** | **~$20–40/month** |
+| Railway (`api` + `worker`, usage-based) | ~$10–15 |
+| Railway Bucket (50 GB) | a few $ |
+| Atlas M10 | ~$9 (free cluster in dev/staging) |
+| **Infra total** | **~$20–45/month** |
 | OpenAI (agents + modest voice) | ~$30–50/month |
 | **Boltz, during the build** | **$0** — the whole build fits inside 200 free predictions/month (§2) |
 | Boltz, real research use after launch | ~$0.05/design; a serious 10,000-design campaign ~$500 |
@@ -897,17 +910,24 @@ API behaves differently from its generated types, we want to know in week one, n
 | Over-claiming by the assistant damages scientific credibility | **High** | Scientific Review as a non-bypassable guardrail + claim-lint + limitations-first reports |
 | African institutions may be unable to send target data to a US API | Medium | `DesignEngine` seam preserved for on-prem BoltzGen; stated honestly as a v2 path |
 | Mol* bundle size on constrained bandwidth | Low | Lazy chunk; non-WebGL fallback view |
+| Railway's managed Mongo may not be a replica set, so change streams would fail there | Low | We use Atlas, which always is. Checked in M0; consolidating onto Railway is an option, not a dependency |
 
-**Open questions for you:**
-1. **Name** — is "Baobab" fine, or do you have one? It sets the repo name.
-2. **Repo visibility** — private (default) or public? A public repo is often worth marks for a
-   hackathon and fits the open-science framing.
-3. **Auth scope for v1** — magic-link email as specified, or do you need Google sign-in?
-4. **Boltz free-tier status** — do you know how many of the 200 monthly predictions are left? It
-   determines how aggressive M1's live test can be.
-5. **Hosting** — Fly.io is proposed for the backend. You have a Railway connector (currently
-   unauthorised in this session); if you'd rather use Railway, say so and I'll switch §14.
-6. **Deployment region** — is there a preferred region close to your users?
+### Resolved on approval (2026-11-11)
+
+| Question | Decision |
+|---|---|
+| Name | **Biostruct** |
+| Repo visibility | **Public**, MIT licensed |
+| Hosting | **Railway** (backend + Bucket) + Vercel (web) |
+
+### Still open — not blocking M0
+
+1. **Auth for v1** — magic-link email is specified. Google sign-in instead or as well? Decide by M0.
+2. **Boltz allowance** — whether the 200/month covers API usage, and how much is left. Answered in
+   M1 by two free calls; development runs on an unbilled test key regardless.
+3. **Deployment region** — Railway region nearest the intended users. Decide at first deploy.
+4. **Licence for generated outputs** — MIT covers the code; we should state separately that designed
+   sequences belong to the researcher. Needed before the first external user, not before M0.
 
 ---
 
@@ -931,4 +951,7 @@ API behaves differently from its generated types, we want to know in week one, n
 | 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
 | 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |
 | 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |
+| 018 | 2026-11-11 | **Railway for the backend** (one project, `staging` + `production` environments, `api` + `worker` services), Vercel for the web app | User's choice. Long-lived processes suit SSE and the reconciler loop; IaC in `.railway/` keeps environments reproducible | Fly.io (earlier draft); serverless |
+| 019 | 2026-11-11 | **Railway Bucket replaces Cloudflare R2** for object storage | Same project as the services, credentials from `railway bucket credentials`, no extra vendor and no subscription checkout gate. The `StorageBackend` interface means this is swappable | Cloudflare R2; AWS S3 |
+| 020 | 2026-11-11 | **MongoDB stays on Atlas**, not Railway's managed Mongo | Change streams need a replica set; Atlas always is one. Railway's is a single container with replica-set support unverified | Railway managed Mongo |
 | 017 | 2026-11-11 | **All money handled as `Decimal`**, and the startup check asserts the key's `mode` matches the environment | Verified live: the API returns costs as strings (`"0.0500"`) and reports `mode: "test"\|"live"` on `auth/me`. Float money rounds wrongly; a live key in dev or a test key in prod are both silent, expensive mistakes | Floats; trusting the operator to use the right key |

@@ -1,4 +1,4 @@
-# Baobab — AI-Powered Therapeutic Protein Design Platform
+# Biostruct — AI-Powered Therapeutic Protein Design Platform
 
 An integrated research environment that takes a researcher from a **drug-resistant infection** to a
 **ranked, explained, exportable list of candidate therapeutic protein binders** — without needing a
@@ -7,8 +7,8 @@ GPU cluster, an MLOps team, or a computational-biology background.
 Built for early-stage therapeutic protein discovery, with African research institutions as the
 primary audience.
 
-> **Status: pre-build.** The architecture is written and awaiting approval. No feature code yet.
-> Start with **[ARCHITECTURE.md](ARCHITECTURE.md)**, backed by **[docs/research.md](docs/research.md)**.
+> **Status: approved, build starting.** Start with **[ARCHITECTURE.md](ARCHITECTURE.md)**, backed by
+> **[docs/research.md](docs/research.md)**.
 
 ---
 
@@ -46,7 +46,7 @@ asserts efficacy or clinical readiness, and every export leads with its limitati
 **API** — Python 3.12 · FastAPI · reconciler worker (no queue, no broker)
 **Science** — Boltz API (`BoltzProt-1` design, `Boltz-2` structure + affinity) · UniProt · RCSB PDB · PubMed
 **AI** — OpenAI Agents SDK · Realtime API (voice)
-**Data** — MongoDB (data, cache, change-stream progress) · Cloudflare R2
+**Data** — MongoDB (data, cache, change-stream progress) · Railway Bucket (S3-compatible)
 
 One correction worth knowing up front: **Boltz-2 cannot design binders** — it scores complexes.
 De novo design comes from **BoltzProt-1** (hosted API) or BoltzGen (open source, needs an A100).
@@ -92,4 +92,4 @@ confirmation, every project has a hard budget, and the account carries an indepe
 
 ## Licence
 
-TBD before the repo goes public.
+[MIT](LICENSE).
