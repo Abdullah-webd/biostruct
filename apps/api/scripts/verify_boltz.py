@@ -21,14 +21,11 @@ import argparse
 import asyncio
 import os
 import re
-import sys
 import time
 from decimal import Decimal
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-from biostruct.engines import (  # noqa: E402
+from biostruct.engines import (
     BoltzHostedEngine,
     CuratedBinder,
     DesignRules,
@@ -49,7 +46,9 @@ def load_key() -> str:
     key = os.environ.get("BOLTZ_API_KEY", "")
     if key:
         return key
-    for candidate in (Path(".env"), Path("../../.env"), Path(__file__).resolve().parents[3] / ".env"):
+    here = Path(__file__).resolve()
+    candidates = (Path(".env"), Path("../../.env"), here.parents[3] / ".env")
+    for candidate in candidates:
         if candidate.exists():
             for line in candidate.read_text().splitlines():
                 m = re.match(r"\s*BOLTZ_API_KEY\s*=\s*(.*)", line)
@@ -176,9 +175,7 @@ async def main() -> int:
             print("    (expected in test mode; ranking redistributes its weight)")
 
         print("\n  top 3 by binding_confidence:")
-        ranked = sorted(
-            results, key=lambda r: r.metrics.binding_confidence or 0.0, reverse=True
-        )
+        ranked = sorted(results, key=lambda r: r.metrics.binding_confidence or 0.0, reverse=True)
         for r in ranked[:3]:
             m = r.metrics
             seqs = "/".join(str(len(e.value)) for e in r.protein_entities)
