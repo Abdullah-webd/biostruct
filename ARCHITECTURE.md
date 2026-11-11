@@ -554,7 +554,8 @@ Collections and the fields that carry weight:
 
 | Collection | Key fields |
 |---|---|
-| `users` | `_id`, `email`, `name`, `role`, `created_at` |
+| `users` | `_id`, `email` (unique, lowercased), `name`, `password_hash` (Argon2id), `role`, `created_at`, `last_login_at` |
+| `sessions` | `_id` (hash of the cookie token, never the token itself), `user_id`, `created_at`, `expires_at` **(TTL index)**, `user_agent`, `ip` |
 | `projects` | `_id`, `user_id`, `name`, `infection{name, pathogen, amr_context}`, `ranking_weights`, `created_at` |
 | `budgets` | `project_id`, `limit_usd`, `spent_usd`, `reserved_usd` — all **`Decimal`**; the API returns money as strings (`"0.0500"`) and float parsing would introduce rounding error |
 | `targets` | `_id`, `project_id`, `uniprot_accession`, `name`, `organism`, `sequence`, `length`, `function`, `assessment`, `source_fetched_at` |
@@ -599,7 +600,7 @@ on deploy. Every document carries `schema_version`.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/auth/login` · `/auth/logout` · `GET /auth/me` | Email magic link for v1 |
+| `POST` | `/auth/register` · `/auth/login` · `/auth/logout` · `GET /auth/me` | Email + password. `register` takes `{email, name, password}`; password policy enforced server-side (min 12 chars, checked against a common-password list). Rate-limited. |
 | `GET/POST` | `/projects` · `GET/PATCH/DELETE /projects/{id}` | |
 | `POST` | `/projects/{id}/targets/search` | `{query, organism?, reviewed_only=true}` → targets + `degraded[]` |
 | `POST` | `/projects/{id}/targets` | persist a chosen target |
@@ -742,8 +743,12 @@ sequenceDiagram
 
 ## 11. Security & privacy
 
-**Authn/authz.** Email magic-link sessions (httpOnly, Secure, SameSite=Lax), server-side session
-records so logout is real. Every project-scoped query filters on `user_id` **in the query itself**,
+**Authn/authz.** **Email + password** sign-up and sign-in. Passwords hashed with **Argon2id**
+(`argon2-cffi`), never stored or logged in any other form. Server-side session records with an
+httpOnly, Secure, SameSite=Lax cookie holding only an opaque random token, so logout is real and a
+stolen cookie can be revoked. Login is rate-limited per email **and** per IP, and failures are
+deliberately slow and identical for "wrong password" and "no such user" so the endpoint cannot be
+used to discover who has an account. Every project-scoped query filters on `user_id` **in the query itself**,
 never after the fetch. Authorisation is re-checked on the voice relay path, where the request
 arrives from a browser we treat as hostile.
 
@@ -922,12 +927,18 @@ API behaves differently from its generated types, we want to know in week one, n
 
 ### Still open — not blocking M0
 
-1. **Auth for v1** — magic-link email is specified. Google sign-in instead or as well? Decide by M0.
-2. **Boltz allowance** — whether the 200/month covers API usage, and how much is left. Answered in
+Resolved since approval:
+- ~~Auth for v1~~ → **email + password**, Argon2id, no social sign-in (ADR-021).
+- ~~Deployment region~~ → **`europe-west4`** (Amsterdam), best average latency to African users of
+  Railway's options (ADR-022).
+- ~~Licence for generated outputs~~ → settled in [`NOTICE`](NOTICE): designs belong to the researcher.
+
+Genuinely still open:
+1. **Boltz allowance** — whether the 200/month covers API usage, and how much is left. Answered in
    M1 by two free calls; development runs on an unbilled test key regardless.
-3. **Deployment region** — Railway region nearest the intended users. Decide at first deploy.
-4. **Licence for generated outputs** — MIT covers the code; we should state separately that designed
-   sequences belong to the researcher. Needed before the first external user, not before M0.
+2. **Password reset email** — email + password means we need a sender (Resend or Postmark) for
+   reset links. Deferred past M0; an admin can reset in the meantime. Must land before external
+   users.
 
 ---
 
@@ -951,6 +962,8 @@ API behaves differently from its generated types, we want to know in week one, n
 | 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
 | 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |
 | 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |
+| 021 | 2026-11-11 | **Email + password auth, Argon2id, server-side sessions. No social sign-in** | User's choice. Keeps v1 dependency-free of an identity provider and works for researchers without Google accounts, which matters for the target audience. Cost: we own password security, so Argon2id, a password policy, rate limiting and uniform failure responses are mandatory, and password reset needs an email sender (open question 5) | Magic link (earlier draft; needs an email sender on day one); Google OAuth |
+| 022 | 2026-11-11 | **Railway region `europe-west4`** (Amsterdam) | Most African internet traffic transits Europe, and Amsterdam peers with the major African subsea cables, so it gives the best average latency to African users of Railway's options. Revisit if Railway adds an African region | `us-east`/`us-west` (adds a transatlantic hop); `asia-southeast1` |
 | 018 | 2026-11-11 | **Railway for the backend** (one project, `staging` + `production` environments, `api` + `worker` services), Vercel for the web app | User's choice. Long-lived processes suit SSE and the reconciler loop; IaC in `.railway/` keeps environments reproducible | Fly.io (earlier draft); serverless |
 | 019 | 2026-11-11 | **Railway Bucket replaces Cloudflare R2** for object storage | Same project as the services, credentials from `railway bucket credentials`, no extra vendor and no subscription checkout gate. The `StorageBackend` interface means this is swappable | Cloudflare R2; AWS S3 |
 | 020 | 2026-11-11 | **MongoDB stays on Atlas**, not Railway's managed Mongo | Change streams need a replica set; Atlas always is one. Railway's is a single container with replica-set support unverified | Railway managed Mongo |
