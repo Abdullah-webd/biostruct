@@ -557,7 +557,7 @@ Collections and the fields that carry weight:
 |---|---|
 | `users` | `_id`, `email`, `name`, `role`, `created_at` |
 | `projects` | `_id`, `user_id`, `name`, `infection{name, pathogen, amr_context}`, `ranking_weights`, `created_at` |
-| `budgets` | `project_id`, `limit_usd`, `spent_usd`, `reserved_usd` |
+| `budgets` | `project_id`, `limit_usd`, `spent_usd`, `reserved_usd` — all **`Decimal`**; the API returns money as strings (`"0.0500"`) and float parsing would introduce rounding error |
 | `targets` | `_id`, `project_id`, `uniprot_accession`, `name`, `organism`, `sequence`, `length`, `function`, `assessment`, `source_fetched_at` |
 | `structure_refs` | `target_id`, `pdb_id`, `chain_id`, `method`, `resolution`, `cif_url`, `mirrored_key` |
 | `references` | `target_id`, `pmid`, `title`, `journal`, `year`, `abstract` |
@@ -931,3 +931,4 @@ API behaves differently from its generated types, we want to know in week one, n
 | 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
 | 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |
 | 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |
+| 017 | 2026-11-11 | **All money handled as `Decimal`**, and the startup check asserts the key's `mode` matches the environment | Verified live: the API returns costs as strings (`"0.0500"`) and reports `mode: "test"\|"live"` on `auth/me`. Float money rounds wrongly; a live key in dev or a test key in prod are both silent, expensive mistakes | Floats; trusting the operator to use the right key |

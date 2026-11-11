@@ -83,6 +83,41 @@ it gives exact field names and bounds that no narrative page documents.
 - Import: `from boltz_api import Boltz`; `Boltz(api_key=os.environ["BOLTZ_API_KEY"])`.
 - Deps: `httpx`, `pydantic`, `anyio`, `distro`, `sniffio`, `typing-extensions`. Async client included.
 
+### 2b. Verified live against the API (2026-11-11)
+
+Confirmed with a real **test-mode workspace key** (`sk_bc_ws_test_`), free and unbilled:
+
+- `GET https://api.boltz.bio/compute/v1/auth/me` → **200**. Returns `principal_type`,
+  `api_key_id`, `key_type: "workspace"`, **`mode: "test"`**, `organization_id`,
+  `selected_organization_id`, `workspace_id`, `organization_name`. So the API reports its own
+  mode — we can assert at startup that production is not accidentally running on a test key, and
+  that development is not accidentally running on a live one.
+- `POST /compute/v1/protein/design/estimate-cost` → **200**, with a `no_template` protein target
+  plus a `boltz_curated` / `boltz_nanobody` binder spec and `num_proteins: 10`:
+
+```json
+{
+  "estimated_cost_usd": "0.5000",
+  "breakdown": { "application": "protein_design", "num_units": 10, "cost_per_unit_usd": "0.0500" },
+  "disclaimer": "This is an estimate only and may differ from your actual charges. Final billing is based on exact token counts computed at run time. ..."
+}
+```
+
+Three things this settles:
+
+1. **The request schema in this document is correct.** A `no_template` target and a
+   `boltz_curated` nanobody binder spec are accepted as designed, so §8's `DesignSpec` maps
+   straight onto the wire format.
+2. **$0.05/design is confirmed**, matching the published 257–512 crop tier for a KPC-2-sized
+   target. The research figures were right.
+3. ⚠️ **Money comes back as a *string*, not a number** (`"0.5000"`, `"0.0500"`). All cost and
+   budget arithmetic must use `Decimal`, never `float`. Parsing these as floats would introduce
+   rounding error into spend tracking. Enforced by a unit test.
+
+Also noted: billing is *"based on exact token counts computed at run time"*, so the estimate is
+genuinely an estimate. The budget must therefore **reserve** the estimate and **settle** the actual
+afterwards — which is why `budgets` carries both `reserved_usd` and `spent_usd`.
+
 ### 2a. Test-mode keys change the development plan
 
 Because test-mode keys are unbilled and return synthetic results, development does **not** need
