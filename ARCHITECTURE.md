@@ -217,7 +217,7 @@ needs to know a job can take hours.
 | 3D | **Mol\*** (`molstar`) | 4.x | The reference viewer for mmCIF; brief's choice; handles multi-chain + residue selection natively | NGL (less maintained), 3Dmol.js (weaker mmCIF) |
 | Backend | Python + FastAPI | 0.115+ | Brief's choice; async-native, which matches an I/O-bound job-polling workload; same language as `boltz-api` and `openai-agents` | Node (would split the stack away from both SDKs) |
 | Runtime | Python **3.12** via `uv` | 3.12 | `openai-agents` needs ≥3.10; `uv` for reproducible, fast installs | System 3.9 (too old), Poetry (slower) |
-| Science API | **`boltz-api`** | **pinned `==0.50.0`** | Only route to BoltzProt-1 de novo design ([research §1–2](docs/research.md)) | Self-hosted BoltzGen (needs A100 + 39 GB weights); NVIDIA NIM (no design model) |
+| Science API | **`boltz-api`** | **pinned `==0.50.0`** | Only route to BoltzProt-1 de novo design ([research §1–2](docs/research.md)). Base URL `https://api.boltz.bio`, auth header `x-api-key`. Docs at `api.boltz.com/docs`; keys from `api.boltz.com/console` | Self-hosted BoltzGen (needs A100 + 39 GB weights); NVIDIA NIM (no design model) |
 | Agents | `openai-agents` | 0.24.0 | Brief's choice; gives us agents-as-tools, typed context, guardrails and tracing for free | LangGraph (more machinery than this needs), bespoke loop |
 | Voice | OpenAI Realtime, `gpt-realtime-2.1`, browser WebRTC | GA | Lowest-latency path; ephemeral tokens keep our key server-side | Python SDK `RealtimeAgent` (WebSocket only, no WebRTC — but see §7 fallback) |
 | Database | MongoDB Atlas | 7.x | Brief's choice; document shape fits the deeply nested, schema-drifting Boltz payloads, which we store verbatim; **and** `openai-agents` ships `MongoDBSession`, so chat history needs no bespoke layer | Postgres+JSONB (good fit, but would duplicate the session store) |
@@ -870,7 +870,7 @@ Each is independently shippable, ends green, and gets pushed (per `git-cadence`)
 | # | Milestone | Acceptance criteria |
 |---|---|---|
 | **M0** | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo as a single-node replica set, CI green, auth + projects CRUD, deployed skeleton at a real URL |
-| **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **a real 10-design run against the live API succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
+| **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **the whole path exercised first with a free test-mode key (`sk_bc_ws_test_`), then a real 10-design run against a live key succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
 | **M2** | Target discovery | F1–F3: UniProt/RCSB/PubMed with caching, rate limits and degraded-mode banner; target persisted with evidence; epitope residues selectable by number |
 | **M3** | Design runs + reconciler | F4–F7, F15–F17: estimate → confirm → submit → poll → **harvest with mirroring**; SSE progress; crash-resume proven in an integration test |
 | **M4** | Structures + ranking | F8–F10: Mol* viewer with chain colouring and epitope highlight; deterministic ranking with editable weights; per-candidate explanation with percentiles |
@@ -888,7 +888,7 @@ API behaves differently from its generated types, we want to know in week one, n
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| `boltz-api` is Stainless-generated and will churn; there is **no public API reference** | High | Pin `==0.50.0`, single adapter, contract tests, fixtures. Ask Boltz for a reference URL and a changelog. |
+| `boltz-api` is Stainless-generated and will churn; there is **no published OpenAPI spec** and the SDK's own GitHub repo 404s | Medium | Pin `==0.50.0`, single adapter, contract tests against recorded fixtures. Reference docs do exist at `api.boltz.com/docs`; ask Boltz for a changelog. |
 | BoltzProt-1's real-world output quality is unverified by us | High | M1 runs a real campaign and we *look at the results* before building on top. Benchmark claims in research are Boltz's own. |
 | A bug or typo spends real money — `num_proteins` accepts up to 1,000,000 | Medium | Confirmed estimate, per-project budget, Boltz workspace spending limit, UI cap on `num_proteins`. (The build itself fits the free tier.) |
 | The 200/month free tier may not apply to **API** usage, only Boltz Lab | Medium | Verified in M1 with the free `auth.me()` / `admin/usage` calls, before any sizeable run |
@@ -930,3 +930,4 @@ API behaves differently from its generated types, we want to know in week one, n
 | 013 | 2026-11-10 | **Python 3.12 via `uv`** | `openai-agents` needs ≥3.10; system Python is 3.9 | System Python; Poetry |
 | 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
 | 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |
+| 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |

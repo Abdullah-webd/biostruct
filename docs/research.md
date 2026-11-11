@@ -48,16 +48,59 @@ audience, some of whom cannot send target data to a US API.
 
 ## 2. The Boltz API surface — verified by SDK inspection
 
-Boltz publishes **no public API reference**. `docs.boltz.com` lists only Boltz Lab user-guide pages;
-`docs.boltz.com/api-reference` returns 404; `api.boltz.bio` 302s to `api.boltz.com/console`, which
-returns an 11-byte body reading `Boltz API`. PyPI and npm both block automated fetches.
+**Correction to an earlier draft of this document.** It claimed Boltz publishes no API reference.
+That was wrong, and the mistake was looking at the wrong site. There are two:
 
-So instead of guessing from marketing pages, we installed the official SDK and read its
-Stainless-generated types. **Everything in this section is verified from shipped code**, not prose.
+| Site | What it is |
+|---|---|
+| `docs.boltz.com` | **Boltz Lab only** — the web product. No API, auth or key pages. This is the trap. |
+| **`api.boltz.com/docs`** | **The actual API documentation** (Stainless-generated): quickstart, authentication, costs, API reference. |
+
+Verified from `api.boltz.com/docs`:
+- Sign-up and key creation: **`https://api.boltz.com/console`**. The quickstart says *"After signing
+  up for an account in the API Console, you'll be granted credits so you can test the API for
+  free."* No amount stated.
+- Base URL **`https://api.boltz.bio`**; auth header **`x-api-key: <key>`**; env var `BOLTZ_API_KEY`.
+- Key prefixes: `sk_bc_ws_test_`, `sk_bc_ws_live_`, `sk_bc_admin_test_`, `sk_bc_admin_live_`.
+  Full key shown **once**, at creation.
+- **Test-mode keys (`sk_bc_*_test_`) are free**: *"no GPU usage, and no billing"*, returning
+  synthetic results. Significant for us — see §2a below.
+- Admin keys can mint further keys via `POST /compute/v1/admin/api-keys`; workspace keys cannot.
+- A keyless CLI OAuth path exists:
+  `boltz-api --auth-issuer-url "https://lab.boltz.bio" auth login [--device-code]`.
+- Packages: `pip install boltz-api`, `npm install boltz-api`.
+
+Still true, and still the reason for our approach: **there is no published OpenAPI spec.**
+`api.boltz.com/openapi.json` returns the console shell, not a spec, and the SDK's GitHub repo
+(`boltz-bio/boltz-api-python`, linked from their own reference) returns 404. PyPI and npm block
+automated fetches.
+
+So we installed the official SDK and read its Stainless-generated types. **Everything in the rest of
+this section is verified from shipped code**, not prose — which is stronger than prose anyway, since
+it gives exact field names and bounds that no narrative page documents.
 
 - Package: **`boltz-api`**, version **0.50.0**, licence Apache-2.0, contact `contact@boltz.bio`.
 - Import: `from boltz_api import Boltz`; `Boltz(api_key=os.environ["BOLTZ_API_KEY"])`.
 - Deps: `httpx`, `pydantic`, `anyio`, `distro`, `sniffio`, `typing-extensions`. Async client included.
+
+### 2a. Test-mode keys change the development plan
+
+Because test-mode keys are unbilled and return synthetic results, development does **not** need
+recorded fixtures as its only defence against cost. The plan becomes:
+
+| Purpose | Key |
+|---|---|
+| Day-to-day development, CI, E2E | **test key** — free, fast, no GPU wait |
+| Contract tests | recorded fixtures (deterministic, offline) |
+| M1 proof that the live API matches its types | **live key**, ~30 predictions |
+| The demo run | **live key**, ~100 predictions |
+
+Fixtures are still worth keeping: they make tests deterministic and runnable offline, and they
+catch SDK field renames. But test keys mean a contributor can exercise the real request/response
+path end to end without spending anything, which fixtures alone cannot prove.
+
+One caution: synthetic results are **not** scientifically meaningful. Ranking logic must be
+validated against the real M1 run, never against test-mode output.
 
 ### Resource tree
 
@@ -343,7 +386,7 @@ discovery, ranking transparency, interpretation and honesty. Those must be excel
 | 2 | Artifact URLs expire (`url_expires_at`) | Mirror every artifact to our own object storage on job completion |
 | 3 | A design run takes minutes–hours; `num_proteins` max is 1,000,000 | Agent tools start jobs and return a job id immediately; a reconciler polls |
 | 4 | `num_proteins` max is 1,000,000 — one typo is a $50,000 call. (The *build* itself fits in the free tier; see §2.) | `estimate_cost` + confirmed estimate + workspace spending limit + per-project budget + UI cap on `num_proteins` |
-| 5 | No public API reference; SDK is Stainless-generated and will churn | Pin `boltz-api==0.50.0`; isolate behind one adapter module; contract-test against recorded fixtures |
+| 5 | No published OpenAPI spec; SDK is Stainless-generated and will churn | Pin `boltz-api==0.50.0`; isolate behind one adapter module; contract-test against recorded fixtures |
 | 6 | Agents SDK tracing is on by default and egresses content to OpenAI | Explicit opt-in per deployment; default off for self-hosted installs |
 | 7 | Browser WebRTC surfaces tool calls client-side | Server-side tool bridge; the browser never holds a Boltz or OpenAI standard key |
 | 8 | LLMs will happily overstate what a computational score means | Scientific Review Agent as an **output guardrail**, not a suggestion; claim-linting on every generated narrative |

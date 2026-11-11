@@ -1,7 +1,11 @@
 # Credentials — what's needed, when, and how to get it
 
-**Short version: two keys, and you already have both.** Everything else is either free, local, or
-not needed until we deploy.
+**Short version: two keys.** Everything else is either free, local, or not needed until we deploy.
+
+| Key | Where to get it |
+|---|---|
+| `BOLTZ_API_KEY` | **https://api.boltz.com/console** — sign up, create a key, free credits included |
+| `OPENAI_API_KEY` | **https://platform.openai.com/api-keys** |
 
 ## How to hand them over
 
@@ -23,27 +27,82 @@ somewhere it shouldn't, rotate it — both providers let you revoke and reissue 
 
 | # | Credential | Needed from | Cost | Status |
 |---|---|---|---|---|
-| 1 | `BOLTZ_API_KEY` | **M1** (first milestone) | Free tier covers the whole build | ✅ you have it |
-| 2 | `OPENAI_API_KEY` | M5 (agents) | ~$30–50/mo at launch; pennies while building | ✅ you have it |
+| 1 | `BOLTZ_API_KEY` | **M1** (first milestone) | Free — test-mode keys are unbilled | [api.boltz.com/console](https://api.boltz.com/console) |
+| 2 | `OPENAI_API_KEY` | M5 (agents) | ~$30–50/mo at launch; pennies while building | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 
 ### 1. Boltz API key
 
-You already have this, so nothing to do. For the record, if it ever needs reissuing: Boltz has
-**no publicly documented self-serve key flow.** `docs.boltz.com` covers only Boltz Lab (the web
-product), there is no API-key or authentication page, and `api.boltz.com/console` is a JavaScript
-app shell that returns no readable content to a non-browser client. Boltz Lab itself is in beta
-with access by request form, and sign-in instructions arrive by email.
+**Sign up at → https://api.boltz.com/console**
 
-So: keep the key you have somewhere safe, and if you need another, email **support@boltz.bio**
-(listed on their billing docs) rather than hunting for a signup page.
+Their quickstart says: *"After signing up for an account in the API Console, you'll be granted
+credits so you can test the API for free."* The credit amount isn't stated.
 
-**Two things to check once, in M1** — both are free API calls, so they cost nothing to answer:
-- Does the **200 free predictions/month** allowance apply to **API** usage, or only to Boltz Lab?
-  The figure appears on the Lab pricing table and is *not* repeated on the API page. Unconfirmed.
-- How much of this month's allowance is left?
+1. Open **https://api.boltz.com/console** and create an account.
+2. Create an API key. **The full key is shown only once, at creation time** — copy it immediately.
+3. Paste it into `.env` as `BOLTZ_API_KEY=`.
 
-`client.auth.me()` and `GET /compute/v1/admin/usage` answer both. We call them before spending
-anything.
+> The real API documentation lives at **https://api.boltz.com/docs**. That is a completely
+> different site from `docs.boltz.com`, which only documents Boltz Lab (their web product) and has
+> no API or authentication pages at all. An easy trap — we fell into it on the first pass and
+> wrongly concluded there was no self-serve signup.
+
+#### Start with a TEST key, not a live one
+
+Keys carry a prefix saying what they are:
+
+| Prefix | What it is |
+|---|---|
+| `sk_bc_ws_test_` | workspace, **test mode** |
+| `sk_bc_ws_live_` | workspace, live |
+| `sk_bc_admin_test_` | admin, test mode |
+| `sk_bc_admin_live_` | admin, live |
+
+**Test-mode keys are free.** Boltz documents them as *"no GPU usage, and no billing"*, returning
+synthetic results. That is ideal for building: we can develop and test the whole platform against a
+test key without spending credits or waiting on real GPU runs, and switch to a live key only for
+the few genuine runs in M1 and the demo.
+
+**Use workspace keys, not admin keys,** for the app. Admin keys can create and revoke other keys
+(`POST /compute/v1/admin/api-keys`) and set spending limits — more power than the app needs.
+
+#### Technical details, for the record
+
+| | |
+|---|---|
+| Base URL | `https://api.boltz.bio` |
+| Auth header | `x-api-key: <your-api-key>` |
+| Env var | `BOLTZ_API_KEY` |
+| Python | `pip install boltz-api` → `Boltz(base_url="https://api.boltz.bio", api_key=...)` |
+| TypeScript | `npm install boltz-api` |
+| CLI | `curl -fsSL https://install.boltz.bio/boltz-api/install.sh | sh` |
+
+Note the dashboard is `api.boltz.**com**/console` but the API base URL is `api.boltz.**bio**` —
+both domains are live, and that is not a typo.
+
+#### If the console gives you trouble
+
+There is a second route needing **no API key at all** — the CLI logs in over OAuth:
+
+```bash
+boltz-api --auth-issuer-url "https://lab.boltz.bio" auth login
+# on a remote machine, or if the browser flow fails:
+boltz-api --auth-issuer-url "https://lab.boltz.bio" auth login --device-code
+```
+
+A useful fallback, though the app itself uses a key.
+
+#### Still unconfirmed
+
+- Whether the **200 free predictions/month** figure applies to API usage. It appears on the *Boltz
+  Lab* pricing page; the API quickstart only says "you'll be granted credits", with no number.
+  Verified in M1 via `client.auth.me()` and `GET /compute/v1/admin/usage` — both free calls.
+- Whether a card is needed. No API page says so, and test mode is explicitly unbilled. Their Lab
+  billing page mentions payment methods only for on-demand usage above the free allowance.
+- No academic plan or academic credits documented anywhere.
+- No OpenAPI spec published — `api.boltz.com/openapi.json` returns the console shell, not a spec.
+  Hence pinning the SDK and contract-testing against recorded fixtures (ARCHITECTURE.md §6.1).
+
+---
 
 ### 2. OpenAI API key
 
