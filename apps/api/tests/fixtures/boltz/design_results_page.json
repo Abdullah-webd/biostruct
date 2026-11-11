@@ -1,0 +1,130 @@
+{
+  "data": [
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        }
+      },
+      "created_at": "2026-11-11T14:36:05.074Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "A"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "KVYPVQYRLSPMFHSPCLIVLHNANAWPWYMLHVTDDQTTWYKLRDPWRASGICLQFAASKIDNHCDFILCIMIHIYALWCHWVPAPNPGCTFQNFPTHQSNPWFTLDTRGFMETNVANTLIHVRQFFHNMSYNYRHRMSSVPEVS"
+        },
+        {
+          "chain_ids": [
+            "B"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "SHNQKSMRTCVICGRVYYMKGDTNNQINLQSFVYYAPQHRDEPFKPWQQEGLPPKWSDIYKHQHERDFILYLKWKYWDG"
+        }
+      ],
+      "id": "test_res_prot_des_qPQEcetnjhUWOXYNByTi_000000",
+      "metrics": {
+        "binding_confidence": 0.7286,
+        "helix_fraction": 0.313,
+        "iptm": 0.7925,
+        "loop_fraction": 0.414,
+        "min_interaction_pae": 11.56,
+        "sheet_fraction": 0.273,
+        "structure_confidence": 0.8805
+      }
+    },
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        }
+      },
+      "created_at": "2026-11-11T14:36:05.075Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "A"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "HAKTFRTYQPCTPRMRHHCYIHTMVTAPNYLAGYQAKRRSPLTCPNGAAILNCMKLAWLAKNMHQYQCYGVTENIGEIRRDKLQYVREGGWFSFVHFCMFQPFCFDWPWLFCVEDFCSWTEWMPYYKNNLKSRHNIFFTHKNTSMNFSDGVMFDCWVFE"
+        },
+        {
+          "chain_ids": [
+            "B"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "SGVGSIDQIDSDMNNHCKTDDQLYRHLPVTLRTWHLQCFGNMPQWRKIGHHPIIYGVATNDGPSVNIVQPEPFCRHAWLTSLPGFSPVTQKEQAPSSVNIDFPKYSDYKITH"
+        }
+      ],
+      "id": "test_res_prot_des_qPQEcetnjhUWOXYNByTi_000001",
+      "metrics": {
+        "binding_confidence": 0.7889,
+        "helix_fraction": 0.223,
+        "iptm": 0.6566,
+        "loop_fraction": 0.509,
+        "min_interaction_pae": 4.24,
+        "sheet_fraction": 0.268,
+        "structure_confidence": 0.7497
+      }
+    },
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T15:06:05.074Z"
+        }
+      },
+      "created_at": "2026-11-11T14:36:05.075Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "A"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "VLYRTCVQVERMCMIITHCPWTYMQDRMRQNTHSNDCSLSRNFSNFWTITEQGQFWVMTCGMIDHCRWIARHHPEVCRLKEDDPLGHSTQSFNSDLP"
+        },
+        {
+          "chain_ids": [
+            "B"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "HMHFPKDAQASWRTEMDAPQETFIDYIHFLHGFTHHQSVWNVQPQPMNPMSTCNTHADLNQNNDCRIPFAPTQDSSS"
+        }
+      ],
+      "id": "test_res_prot_des_qPQEcetnjhUWOXYNByTi_000002",
+      "metrics": {
+        "binding_confidence": 0.7177,
+        "helix_fraction": 0.281,
+        "iptm": 0.801,
+        "loop_fraction": 0.352,
+        "min_interaction_pae": 8.1,
+        "sheet_fraction": 0.367,
+        "structure_confidence": 0.7585
+      }
+    }
+  ],
+  "first_id": "test_res_prot_des_qPQEcetnjhUWOXYNByTi_000000",
+  "has_more": true,
+  "last_id": "test_res_prot_des_qPQEcetnjhUWOXYNByTi_000002"
+}

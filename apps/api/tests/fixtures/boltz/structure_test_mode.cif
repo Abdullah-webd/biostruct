@@ -1,0 +1,26 @@
+data_test_fixture
+#
+_entry.id test_fixture
+#
+_cell.length_a 50.000
+_cell.length_b 50.000
+_cell.length_c 50.000
+_cell.angle_alpha 90.000
+_cell.angle_beta 90.000
+_cell.angle_gamma 90.000
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+ATOM 1 C CA ALA A 1 1.000 2.000 3.000
+ATOM 2 C C  ALA A 1 2.000 3.000 4.000
+ATOM 3 N N  ALA A 1 0.000 1.000 2.000
+#

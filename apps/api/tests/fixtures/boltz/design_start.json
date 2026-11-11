@@ -1,0 +1,69 @@
+{
+  "completed_at": null,
+  "created_at": "2026-11-11T14:35:28.419Z",
+  "data_deleted_at": null,
+  "engine": "boltzprot",
+  "engine_version": "1.0",
+  "error": null,
+  "id": "prot_des_qPQEcetnjhUWOXYNByTi",
+  "idempotency_key": "m1-verification-kpc2-run-001",
+  "input": {
+    "binder_specification": {
+      "binder": "boltz_nanobody",
+      "rules": {
+        "excluded_amino_acids": [
+          "C"
+        ],
+        "excluded_sequence_motifs": [
+          "NXS",
+          "NXT"
+        ],
+        "max_hydrophobic_fraction": 0.45
+      },
+      "type": "boltz_curated"
+    },
+    "idempotency_key": "m1-verification-kpc2-run-001",
+    "num_proteins": 10,
+    "target": {
+      "chain_selection": {
+        "A": {
+          "chain_type": "polymer",
+          "crop_residues": "all",
+          "epitope_residues": [
+            67,
+            68,
+            69,
+            70,
+            71,
+            128,
+            129,
+            130,
+            164,
+            165,
+            166,
+            167,
+            168,
+            169,
+            170
+          ]
+        }
+      },
+      "structure": {
+        "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_qPQEcetnjhUWOXYNByTi/input/target-structure.cif?<presigned-query-redacted>",
+        "url_expires_at": "2026-11-11T15:05:28.452Z"
+      },
+      "type": "structure_template"
+    }
+  },
+  "livemode": false,
+  "pipeline": "boltzprot",
+  "pipeline_version": "1.0",
+  "progress": {
+    "num_proteins_generated": 0,
+    "total_proteins_to_generate": 10
+  },
+  "started_at": null,
+  "status": "pending",
+  "stopped_at": null,
+  "workspace_id": "ws_oopHPZRx3LNUV5vLAU3J"
+}

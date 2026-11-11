@@ -302,7 +302,9 @@ more than one worker without introducing a broker.
 
 **Harvest** is the critical, failure-prone step:
 1. Page through `iter_design_results`.
-2. For each result, **mirror `artifacts.structure.url` to R2 before `url_expires_at`.**
+2. For each result, **mirror `artifacts.structure.url` to object storage before `url_expires_at`** —
+   measured at about **30 minutes** ([observed](docs/boltz-api-observed.md)), so this is urgent work,
+   not background work.
 3. Write one `candidate` document per design, with metrics and our storage key.
 4. Mirror `artifacts.archive.url` once per run.
 5. Mark the run `complete` only after all mirrors succeed.
@@ -334,8 +336,9 @@ targets), `min_interaction_pae` is inverted, then weighted. Output per candidate
 per-metric normalised contribution, percentile within run, and any `warnings[]` from Boltz.
 
 Rules that are not negotiable:
-- Only `type == "binder"` results are ranked. `generic` results carry **no binding metrics**
-  ([research §2](docs/research.md)) and are shown separately, never scored.
+- Only **binder** results are ranked, identified by the *presence of binding metrics*. The live API
+  does **not** return the `type` discriminator the SDK declares ([observed](docs/boltz-api-observed.md)),
+  so it cannot be branched on. Results without binding metrics are shown separately, never scored.
 - `ipsae_min` is `Optional`. Missing metrics are *excluded with their weight redistributed*, and
   the candidate is flagged `partial_metrics` — never defaulted to 0, which would silently bury it.
 - Weights are stored per project, so a re-rank is a recompute over stored numbers: free, instant,
@@ -561,7 +564,7 @@ Collections and the fields that carry weight:
 | `targets` | `_id`, `project_id`, `uniprot_accession`, `name`, `organism`, `sequence`, `length`, `function`, `assessment`, `source_fetched_at` |
 | `structure_refs` | `target_id`, `pdb_id`, `chain_id`, `method`, `resolution`, `cif_url`, `mirrored_key` |
 | `references` | `target_id`, `pmid`, `title`, `journal`, `year`, `abstract` |
-| `design_runs` | `_id`, `project_id`, `target_id`, `engine`, `engine_job_id`, `idempotency_key`, `spec` (verbatim request), `status`, `progress{num_proteins_generated, pct}`, `cost_estimate`, `cost_actual`, `harvest_cursor`, `error`, timestamps |
+| `design_runs` | `_id`, `project_id`, `target_id`, `engine`, `engine_job_id`, `idempotency_key`, `spec` (verbatim request), `status`, **`livemode`** (false = synthetic test-mode results, surfaced in the UI and excluded from exports), `progress{total_to_generate, num_proteins_generated, pct}`, `cost_estimate`, `cost_actual`, `harvest_cursor` (an `after_id`, since pagination is cursor-based), `error`, timestamps |
 | `candidates` | `_id`, `run_id`, `project_id`, `engine_result_id`, `type` (`binder`\|`generic`), `sequence`, `chain_ids`, `metrics{...}`, `warnings[]`, `raw` (verbatim payload), `storage_key`, `created_at` |
 | `artifacts` | `candidate_id`\|`run_id`, `kind`, `storage_key`, `bytes`, `content_type`, `mirrored_at` |
 | `exports` | `_id`, `project_id`, `candidate_ids[]`, `storage_key`, `provenance`, `created_at` |
@@ -887,8 +890,8 @@ Each is independently shippable, ends green, and gets pushed (per `git-cadence`)
 
 | # | Milestone | Acceptance criteria |
 |---|---|---|
-| **M0** | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo as a single-node replica set, CI green, auth + projects CRUD, deployed skeleton at a real URL |
-| **M1** | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **the whole path exercised first with a free test-mode key (`sk_bc_ws_test_`), then a real 10-design run against a live key succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
+| **M0** ✅ | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo as a single-node replica set, CI green, auth + projects CRUD, deployed skeleton at a real URL |
+| **M1** ✅ | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **the whole path exercised first with a free test-mode key (`sk_bc_ws_test_`), then a real 10-design run against a live key succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
 | **M2** | Target discovery | F1–F3: UniProt/RCSB/PubMed with caching, rate limits and degraded-mode banner; target persisted with evidence; epitope residues selectable by number |
 | **M3** | Design runs + reconciler | F4–F7, F15–F17: estimate → confirm → submit → poll → **harvest with mirroring**; SSE progress; crash-resume proven in an integration test |
 | **M4** | Structures + ranking | F8–F10: Mol* viewer with chain colouring and epitope highlight; deterministic ranking with editable weights; per-candidate explanation with percentiles |
@@ -916,6 +919,9 @@ API behaves differently from its generated types, we want to know in week one, n
 | African institutions may be unable to send target data to a US API | Medium | `DesignEngine` seam preserved for on-prem BoltzGen; stated honestly as a v2 path |
 | Mol* bundle size on constrained bandwidth | Low | Lazy chunk; non-WebGL fallback view |
 | Railway's managed Mongo may not be a replica set, so change streams would fail there | Low | We use Atlas, which always is. Checked in M0; consolidating onto Railway is an option, not a dependency |
+| **Which result chain is the designed binder is not yet established.** Test mode returns two synthetic protein chains of varying length, so the rule cannot be derived from it. The Mol* viewer and the FASTA export both need it | **High** | Settle against a live run before M4. Until then the adapter exposes all protein entities without guessing which is the binder |
+| Test mode returns a stub CIF, so the structure viewer cannot be validated on it | Medium | One live run before M4, and keep its CIF as a viewer fixture |
+| Author residue numbers in PDB files are 1-based and need not start at 1, while the API wants 0-indexed positions. A silent mismatch would aim designs at the wrong epitope | **High** | Mapping lives in the target layer (M2) with explicit tests; the engine validates subset and overlap constraints locally |
 
 ### Resolved on approval (2026-11-11)
 
@@ -934,8 +940,9 @@ Resolved since approval:
 - ~~Licence for generated outputs~~ → settled in [`NOTICE`](NOTICE): designs belong to the researcher.
 
 Genuinely still open:
-1. **Boltz allowance** — whether the 200/month covers API usage, and how much is left. Answered in
-   M1 by two free calls; development runs on an unbilled test key regardless.
+1. **Boltz allowance** — still unanswered, and now known to be *unanswerable with this key*:
+   `/admin/usage` returns 403 for a workspace key and needs an **admin** key, or the console UI.
+   Not blocking: development runs on an unbilled test key.
 2. **Password reset email** — email + password means we need a sender (Resend or Postmark) for
    reset links. Deferred past M0; an admin can reset in the meantime. Must land before external
    users.
@@ -950,7 +957,7 @@ Genuinely still open:
 | 002 | 2026-11-10 | Keep a `DesignEngine` interface with a `BoltzGenLocalEngine` stub | On-prem is a real requirement for some African institutions | Hard-coding the hosted client |
 | 003 | 2026-11-10 | **No queue and no Redis.** A MongoDB scan loop replaces the broker; a TTL collection replaces the cache; change streams replace pub/sub | Our only background work is "poll runs that are in progress", which is a scan, not a queue — and Mongo already holds that truth. A dropped queue message would hang a run forever; a scan retries by construction. Removes a whole service | Celery (brief's suggestion), ARQ + Redis (earlier draft of this document) |
 | 004 | 2026-11-10 | **Reconciler pattern** — the job lives in Boltz; we poll and harvest | Agent tools must return in seconds; no request may block on a job | Worker owning the computation; synchronous `client...run()` |
-| 005 | 2026-11-10 | **Mirror every artifact to R2 on completion** | `url_expires_at` — Boltz URLs are presigned and expire | Storing Boltz URLs (data loss) |
+| 005 | 2026-11-10 | **Mirror every artifact to object storage on completion** | `url_expires_at` — Boltz URLs are presigned and expire, measured at ~30 minutes | Storing Boltz URLs (data loss) |
 | 006 | 2026-11-10 | **Agents-as-tools, not handoffs** | The orchestrator must compose specialist output, which a handoff loses | Handoff topology; one mega-agent |
 | 007 | 2026-11-10 | **Scientific Review as an output guardrail**, not a tool | It must be non-bypassable; a tool can be skipped by the model | Review agent as a tool |
 | 008 | 2026-11-10 | **Ranking is pure, deterministic code** — no LLM | A ranking a researcher cannot reproduce is not defensible in a paper | LLM-scored ranking |
@@ -964,6 +971,8 @@ Genuinely still open:
 | 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |
 | 021 | 2026-11-11 | **Email + password auth, Argon2id, server-side sessions. No social sign-in** | User's choice. Keeps v1 dependency-free of an identity provider and works for researchers without Google accounts, which matters for the target audience. Cost: we own password security, so Argon2id, a password policy, rate limiting and uniform failure responses are mandatory, and password reset needs an email sender (open question 5) | Magic link (earlier draft; needs an email sender on day one); Google OAuth |
 | 022 | 2026-11-11 | **Railway region `europe-west4`** (Amsterdam) | Most African internet traffic transits Europe, and Amsterdam peers with the major African subsea cables, so it gives the best average latency to African users of Railway's options. Revisit if Railway adds an African region | `us-east`/`us-west` (adds a transatlantic hop); `asia-southeast1` |
+| 023 | 2026-11-11 | **Adapter written against observed API behaviour, not the SDK's declared types**, with captured fixtures as contract tests and `scripts/verify_boltz.py` for live re-verification | A live run showed the SDK's types wrong in three ways: results carry no `type` discriminator, `ipsae_min` can be absent entirely, and pagination is cursor-based not offset-based. Each would have surfaced as silently wrong data rather than an error | Trusting the generated types; using the SDK's blocking `run()` helper |
+| 024 | 2026-11-11 | **Carry `livemode` from the run to the UI, and refuse to export test-mode results as findings** | Test-mode runs return synthetic metrics and a 522-byte stub CIF. Presenting those as science is the single most damaging thing this product could do | Treating test and live results alike |
 | 018 | 2026-11-11 | **Railway for the backend** (one project, `staging` + `production` environments, `api` + `worker` services), Vercel for the web app | User's choice. Long-lived processes suit SSE and the reconciler loop; IaC in `.railway/` keeps environments reproducible | Fly.io (earlier draft); serverless |
 | 019 | 2026-11-11 | **Railway Bucket replaces Cloudflare R2** for object storage | Same project as the services, credentials from `railway bucket credentials`, no extra vendor and no subscription checkout gate. The `StorageBackend` interface means this is swappable | Cloudflare R2; AWS S3 |
 | 020 | 2026-11-11 | **MongoDB stays on Atlas**, not Railway's managed Mongo | Change streams need a replica set; Atlas always is one. Railway's is a single container with replica-set support unverified | Railway managed Mongo |

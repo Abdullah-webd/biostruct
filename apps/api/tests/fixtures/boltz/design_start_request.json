@@ -1,0 +1,48 @@
+{
+  "binder_specification": {
+    "binder": "boltz_nanobody",
+    "rules": {
+      "excluded_amino_acids": [
+        "C"
+      ],
+      "excluded_sequence_motifs": [
+        "NXS",
+        "NXT"
+      ],
+      "max_hydrophobic_fraction": 0.45
+    },
+    "type": "boltz_curated"
+  },
+  "idempotency_key": "m1-verification-kpc2-run-001",
+  "num_proteins": 10,
+  "target": {
+    "chain_selection": {
+      "A": {
+        "chain_type": "polymer",
+        "crop_residues": "all",
+        "epitope_residues": [
+          67,
+          68,
+          69,
+          70,
+          71,
+          128,
+          129,
+          130,
+          164,
+          165,
+          166,
+          167,
+          168,
+          169,
+          170
+        ]
+      }
+    },
+    "structure": {
+      "type": "url",
+      "url": "https://files.rcsb.org/download/2OV5.cif"
+    },
+    "type": "structure_template"
+  }
+}

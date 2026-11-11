@@ -45,3 +45,6 @@ Thumbs.db
 
 # Local structure storage (STORAGE_BACKEND=local)
 apps/api/data/
+
+# Raw Boltz API captures (sanitised copies live in tests/fixtures/boltz/)
+.boltz-capture/
