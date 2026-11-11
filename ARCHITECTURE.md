@@ -224,7 +224,7 @@ needs to know a job can take hours.
 | Background work | **Plain asyncio scan loop** over MongoDB — no queue, no broker | — | We have exactly one kind of background work: poll runs that are in progress. That is a *scan*, and Mongo already holds the truth about which runs need polling (index `design_runs(status, updated_at)`). A scan is also **more** robust than a queue: a dropped queue message would leave a run un-polled forever, while a scan retries by construction. | **Celery** and **ARQ** + Redis (a broker buying nothing here); see ADR-003 |
 | Cache | **MongoDB TTL collection** | — | One collection, `expires_at` TTL index, for UniProt/PDB/PubMed responses. No second datastore to operate | Redis (extra service for a cache this small) |
 | Progress → browser | **MongoDB change streams** → SSE | — | The API watches `design_runs` and fans out in-process to SSE clients. Works across any number of API instances, since every instance sees the stream. Supported on Atlas free clusters | Redis pub/sub; polling from the client |
-| Object storage | Cloudflare R2 (S3 API) | — | Zero egress fees, and we re-serve structures to every viewer; S3-compatible so swappable | AWS S3 (egress cost) |
+| Object storage | **`StorageBackend` interface**: local disk in dev, Cloudflare R2 in prod | — | R2 has zero egress fees and we re-serve structures to every viewer. But R2 requires completing a subscription checkout before tokens can be created, so **dev must not depend on it** — `STORAGE_BACKEND=local` means a contributor needs no Cloudflare account to build the whole platform | AWS S3 (egress cost); R2-only (blocks local dev behind a checkout) |
 | Hosting | Vercel (web) + **Fly.io** (API + worker) | — | Brief's split; Fly for long-lived worker + WebSocket/SSE, cheap, multi-region close to African users | Railway (fine alternative, connector unauthorised here), Lambda (SSE + long polling awkward) |
 | Reports | WeasyPrint | — | Server-side HTML→PDF, no headless browser | Puppeteer (heavy) |
 
@@ -829,16 +829,20 @@ their failure modes, including the unhappy ones.
 
 | Env | Web | API + worker | Data |
 |---|---|---|---|
-| dev | `next dev` | `uvicorn --reload`, worker process | local Mongo as a **single-node replica set** (docker compose; required for change streams), R2 dev bucket |
+| dev | `next dev` | `uvicorn --reload`, worker process | local Mongo as a **single-node replica set** (docker compose; required for change streams), structures on **local disk** — no cloud account needed |
 | preview | Vercel preview per PR | Fly preview app | shared preview Atlas, R2 |
 | prod | Vercel | Fly (1 API + 1 worker machine) | Atlas M10, R2 |
 
 **CI/CD.** GitHub Actions: lint (ruff, eslint) → typecheck (mypy strict, tsc) → unit → contract →
 integration → evals → build → E2E → deploy. `main` is protected; the `ship-verify` gate must pass.
 
+**Credentials.** Only two are required to build: `BOLTZ_API_KEY` and `OPENAI_API_KEY`. Everything
+else has a working local default or is deploy-only. See [docs/credentials.md](docs/credentials.md).
+
 **Env vars** (full list in `.env.example`): `BOLTZ_API_KEY`, `BOLTZ_WORKSPACE_ID`, `OPENAI_API_KEY`,
 `OPENAI_REALTIME_MODEL`, `OPENAI_AGENTS_DISABLE_TRACING`, `MONGODB_URI`,
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `SESSION_SECRET`,
+`STORAGE_BACKEND`, `STORAGE_LOCAL_PATH`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `SESSION_SECRET`,
 `NCBI_EMAIL`, `NCBI_API_KEY`, `APP_BASE_URL`, `DEFAULT_PROJECT_BUDGET_USD`.
 
 **Monthly cost estimate (v1 scale).**
@@ -925,3 +929,4 @@ API behaves differently from its generated types, we want to know in week one, n
 | 012 | 2026-11-10 | Pin `boltz-api==0.50.0` behind one adapter with contract tests | No public API reference; generated SDKs churn | Floating version |
 | 013 | 2026-11-10 | **Python 3.12 via `uv`** | `openai-agents` needs ≥3.10; system Python is 3.9 | System Python; Poetry |
 | 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
+| 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |

@@ -59,11 +59,14 @@ See [docs/research.md §1](docs/research.md).
 Nothing to run yet. Once M0 lands:
 
 ```bash
-cp .env.example .env     # fill in BOLTZ_API_KEY and OPENAI_API_KEY
+cp .env.example .env     # only BOLTZ_API_KEY and OPENAI_API_KEY are required
 docker compose up -d     # MongoDB (single-node replica set)
 uv sync                  # Python 3.12 deps
 pnpm install             # web deps
 ```
+
+Two API keys and Docker is the whole setup — no cloud accounts needed to develop.
+See **[docs/credentials.md](docs/credentials.md)** for what each credential is and how to get it.
 
 ## Repository
 
@@ -71,6 +74,7 @@ pnpm install             # web deps
 ARCHITECTURE.md     the design, and the approval gate
 AGENTS.md           rules for any coding agent working here
 docs/research.md    verified findings behind every decision
+docs/credentials.md what keys are needed, when, and how to get them
 apps/web            Next.js frontend            (M0)
 apps/api            FastAPI backend + worker    (M0)
 ```
