@@ -1,0 +1,77 @@
+# Local development and test stack.
+#
+# MongoDB runs as a single-node replica set. That is required, not cosmetic:
+# change streams carry design-run progress to the browser (ARCHITECTURE.md
+# §6.3) and MongoDB only offers them on a replica set.
+#
+# Clients connect with directConnection=true, which skips replica-set
+# discovery. Without it a client has to resolve the member hostname recorded in
+# the replica-set config, which differs between the host ("localhost") and other
+# containers ("mongo") and makes one of the two always wrong. directConnection
+# sidesteps that entirely and still supports change streams.
+services:
+  mongo:
+    image: mongo:7
+    container_name: biostruct-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all", "--quiet"]
+    # MongoDB's production notes ask for a high descriptor limit. The default
+    # was low enough that a heavy test run hit "Too many open files" and
+    # WiredTiger panicked.
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first boot, then reports healthy only once
+      # this node has actually become PRIMARY and can accept writes.
+      test:
+        - CMD-SHELL
+        - >
+          mongosh --quiet --eval '
+            try { rs.status().ok }
+            catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongo:27017"}]}) }
+          ' > /dev/null 2>&1;
+          mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  # Runs the API test suite on this network, so it reaches Mongo by service
+  # name. `docker compose run --rm api-test`
+  api-test:
+    build:
+      context: ./apps/api
+      target: test
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      TEST_MONGODB_URI: mongodb://mongo:27017/?directConnection=true
+      ENV: test
+    profiles: ["test"]
+
+  api:
+    build:
+      context: ./apps/api
+      target: runtime
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ENV: dev
+      MONGODB_URI: mongodb://mongo:27017/biostruct?directConnection=true
+      APP_BASE_URL: http://localhost:3000
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    profiles: ["app"]
+
+volumes:
+  mongo-data:

@@ -42,3 +42,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Local structure storage (STORAGE_BACKEND=local)
+apps/api/data/
