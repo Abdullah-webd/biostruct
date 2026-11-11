@@ -32,51 +32,25 @@ jobs:
         run: uv run mypy
 
   test:
+    # Runs the suite through docker compose, exactly as a developer does
+    # locally. GitHub's `services:` cannot be used for MongoDB here: service
+    # containers take no custom command, so mongod starts without --replSet and
+    # replication cannot be enabled afterwards ("This node was not started with
+    # replication enabled"). Compose can pass the flag, and using it keeps CI
+    # and local development on the identical path.
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    services:
-      mongo:
-        image: mongo:7
-        ports: ["27017:27017"]
-        # A replica set is required for change streams. GitHub's service
-        # containers cannot take a custom command, so the set is initiated in a
-        # step below and clients use directConnection=true.
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
-          --health-interval 5s
-          --health-timeout 10s
-          --health-retries 20
-          --ulimit nofile=64000:64000
     steps:
       - uses: actions/checkout@v4
 
-      - name: Initiate the replica set
-        run: |
-          docker exec "$(docker ps -qf ancestor=mongo:7)" mongosh --quiet --eval '
-            try { rs.status().ok } catch (e) {
-              rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})
-            }'
-          for i in $(seq 1 30); do
-            if docker exec "$(docker ps -qf ancestor=mongo:7)" \
-                 mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; then
-              echo "replica set is PRIMARY"; exit 0
-            fi
-            sleep 2
-          done
-          echo "replica set never became PRIMARY"; exit 1
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-      - run: uv venv --python 3.12
-      - run: uv pip install -e ".[dev]"
+      - name: Start MongoDB (single-node replica set)
+        run: docker compose up -d --wait mongo
 
       - name: Tests
-        env:
-          TEST_MONGODB_URI: mongodb://localhost:27017/?directConnection=true
-        run: uv run pytest -q
+        run: docker compose --profile test run --rm api-test
+
+      - name: MongoDB logs on failure
+        if: failure()
+        run: docker compose logs mongo
 
   smoke:
     # Proves the production image boots and serves real HTTP, not just that
