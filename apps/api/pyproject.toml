@@ -47,9 +47,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S105", "S106", "S107"]  # hardcoded test passwords are fine
-# A smoke script by definition invents a password and opens the URL it is told
-# to; both warnings are about untrusted input it does not have.
-"scripts/smoke.py" = ["S105", "S310"]
+# The verification scripts invent a password and open the URL they are told to;
+# both warnings are about untrusted input they do not have.
+"scripts/*.py" = ["S105", "S310"]
 
 [tool.mypy]
 python_version = "3.12"

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -56,7 +58,15 @@ TEST_DB_NAME = os.environ.get("TEST_MONGODB_DB", "biostruct_test")
 
 # Every collection the app writes to. Anything added later must be listed here,
 # or state will leak between tests.
-_COLLECTIONS = ("users", "sessions", "projects", "source_cache")
+_COLLECTIONS = (
+    "users",
+    "sessions",
+    "projects",
+    "targets",
+    "design_runs",
+    "candidates",
+    "source_cache",
+)
 
 
 @pytest_asyncio.fixture
@@ -71,6 +81,11 @@ async def settings(mongo_available: bool) -> Settings:
         app_base_url="http://testserver",
         boltz_api_key="",  # no key in unit tests; the mode check is a no-op
         default_project_budget_usd="25",
+        # Tests drive the reconciler explicitly. A background loop would race
+        # their assertions and claim runs out from under them.
+        run_reconciler=False,
+        storage_backend="local",
+        storage_local_path=str(Path(tempfile.gettempdir()) / "biostruct-test-storage"),
     )
 
 

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     session_ttl_days: int = 30
     default_project_budget_usd: Decimal = Decimal("25")
 
+    # When false the API does not run the reconciler in-process, which is how
+    # production separates the web service from the worker service.
+    run_reconciler: bool = True
+
     # --- science sources ---------------------------------------------------
     ncbi_email: str = ""
     ncbi_api_key: SecretStr = SecretStr("")

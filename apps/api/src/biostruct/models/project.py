@@ -88,7 +88,7 @@ class Budget(BaseModel):
         if isinstance(v, Decimal):
             return v
         if isinstance(v, float):
-            raise TypeError("money must not be a float; pass a string or Decimal")
+            raise ValueError("money must be a string or Decimal, never a float")
         return Decimal(str(v))
 
     @property
@@ -118,7 +118,10 @@ class ProjectCreate(BaseModel):
         if v is None:
             return None
         if isinstance(v, float):
-            raise TypeError("budget_usd must not be a float; pass a string or Decimal")
+            raise ValueError(
+                "budget_usd must be sent as a string, not a number, so the amount "
+                "cannot drift through binary floating point"
+            )
         return Decimal(str(v))
 
 

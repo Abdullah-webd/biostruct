@@ -9,8 +9,14 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from biostruct import errors, security
 from biostruct.config import Settings, get_settings
+from biostruct.engines.base import DesignEngine
 from biostruct.models.user import User
-from biostruct.repositories import ProjectRepository, TargetRepository, UserRepository
+from biostruct.repositories import (
+    ProjectRepository,
+    RunRepository,
+    TargetRepository,
+    UserRepository,
+)
 from biostruct.sources import ScienceSources
 
 
@@ -50,10 +56,27 @@ def get_sources(request: Request) -> ScienceSources:
     return sources  # type: ignore[no-any-return]
 
 
+def get_runs(db: DbDep) -> RunRepository:
+    return RunRepository(db)
+
+
+def get_engine(request: Request) -> DesignEngine:
+    """The configured design engine, created once at startup.
+
+    Shared because it owns an HTTP connection pool.
+    """
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None:  # pragma: no cover - only if startup was skipped
+        raise RuntimeError("design engine not initialised")
+    return engine  # type: ignore[no-any-return]
+
+
 UsersDep = Annotated[UserRepository, Depends(get_users)]
 ProjectsDep = Annotated[ProjectRepository, Depends(get_projects)]
 TargetsDep = Annotated[TargetRepository, Depends(get_targets)]
 SourcesDep = Annotated[ScienceSources, Depends(get_sources)]
+RunsDep = Annotated[RunRepository, Depends(get_runs)]
+EngineDep = Annotated[DesignEngine, Depends(get_engine)]
 
 
 async def current_user(request: Request, users: UsersDep) -> User:

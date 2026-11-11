@@ -24,8 +24,14 @@ log = logging.getLogger(__name__)
 MONEY_FIELDS = ("limit_usd", "spent_usd", "reserved_usd")
 
 
+# Money is stored to a fixed four decimal places. Without this, subtraction
+# produces "0.0000" where an initial value was "0", so zero has two spellings
+# and any string comparison of amounts becomes subtly wrong.
+MONEY_PLACES = Decimal("0.0001")
+
+
 def money_to_db(value: Decimal) -> str:
-    return str(value)
+    return str(value.quantize(MONEY_PLACES))
 
 
 def money_from_db(value: Any) -> Decimal:
@@ -94,6 +100,29 @@ async def ensure_indexes(db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         [("project_id", ASCENDING), ("accession", ASCENDING)],
         unique=True,
         name="targets_project_accession_unique",
+    )
+
+    # The reconciler's scan. Load-bearing: this is the work list (ADR-004).
+    await db.design_runs.create_index(
+        [("status", ASCENDING), ("updated_at", ASCENDING)], name="runs_status_updated"
+    )
+    await db.design_runs.create_index(
+        [("project_id", ASCENDING), ("created_at", DESCENDING)], name="runs_project_created"
+    )
+    # Makes a retried submission collide instead of starting a second billed run.
+    await db.design_runs.create_index(
+        [("idempotency_key", ASCENDING)], unique=True, name="runs_idempotency_unique"
+    )
+    await db.candidates.create_index(
+        [("run_id", ASCENDING), ("metrics.binding_confidence", DESCENDING)],
+        name="candidates_run_score",
+    )
+    await db.candidates.create_index([("project_id", ASCENDING)], name="candidates_project")
+    # One candidate per engine result, so a resumed harvest cannot duplicate.
+    await db.candidates.create_index(
+        [("run_id", ASCENDING), ("engine_result_id", ASCENDING)],
+        unique=True,
+        name="candidates_run_result_unique",
     )
 
     # The source cache replaces Redis (ADR-003); documents remove themselves.

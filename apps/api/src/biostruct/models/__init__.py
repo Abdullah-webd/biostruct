@@ -8,6 +8,17 @@ from biostruct.models.project import (
     ProjectUpdate,
     RankingWeights,
 )
+from biostruct.models.run import (
+    Candidate,
+    CandidateList,
+    CandidateMetrics,
+    DesignRun,
+    EstimateResponse,
+    RunCreate,
+    RunProgress,
+    RunRequest,
+    RunStatus,
+)
 from biostruct.models.target import (
     ActiveSiteOut,
     EpitopeOut,
@@ -25,8 +36,13 @@ from biostruct.models.user import LoginRequest, RegisterRequest, User, UserPubli
 __all__ = [
     "ActiveSiteOut",
     "Budget",
+    "Candidate",
+    "CandidateList",
+    "CandidateMetrics",
+    "DesignRun",
     "EpitopeOut",
     "EpitopeSelection",
+    "EstimateResponse",
     "Infection",
     "LoginRequest",
     "Project",
@@ -36,6 +52,10 @@ __all__ = [
     "ReferenceOut",
     "RegisterRequest",
     "ResidueMapSummary",
+    "RunCreate",
+    "RunProgress",
+    "RunRequest",
+    "RunStatus",
     "StructureRefOut",
     "Target",
     "TargetCandidate",

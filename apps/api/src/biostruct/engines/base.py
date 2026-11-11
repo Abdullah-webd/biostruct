@@ -319,7 +319,9 @@ class DesignEngine(Protocol):
 
     async def get_job(self, job_id: str) -> EngineJob: ...
 
-    async def iter_results(
+    # Not `async def`: this is an async *generator*, so the method itself
+    # returns the iterator rather than a coroutine wrapping one.
+    def iter_results(
         self, job_id: str, *, after_id: str | None = None, page_size: int = 100
     ) -> AsyncIterator[DesignResult]: ...
 

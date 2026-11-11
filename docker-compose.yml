@@ -53,6 +53,13 @@ services:
     environment:
       TEST_MONGODB_URI: mongodb://mongo:27017/?directConnection=true
       ENV: test
+    # Mount the source and tests over the image's copies. Without this, editing
+    # a test and re-running silently exercises the image's stale copy, which is
+    # a confusing way to lose half an hour.
+    volumes:
+      - ./apps/api/src:/app/src:ro
+      - ./apps/api/tests:/app/tests:ro
+      - ./apps/api/scripts:/app/scripts:ro
     profiles: ["test"]
 
   api:
