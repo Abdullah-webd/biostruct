@@ -1,0 +1,123 @@
+{
+  "_comment": "A real BoltzProt-1 result, captured live on a KPC-2 nanobody run. Presigned query strings redacted. This is the ground truth for chain roles and for the structure viewer.",
+  "classification": {
+    "binder_chains": [
+      "NANO1"
+    ],
+    "conclusive": false,
+    "entities": [
+      {
+        "chain_ids": [
+          "NANO1"
+        ],
+        "contained_in_target": false,
+        "length": 121,
+        "matches_target_exactly": false,
+        "prefix_found_in_target": false,
+        "sequence_head": "QVKLEESGGGLVQAGRSLRLSCAASEHTFSKYTVGWFRQAPGKERESV"
+      }
+    ],
+    "target_chains": []
+  },
+  "results": [
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_B2nfpIqF9XzniikcQQMe_archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.244Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_B2nfpIqF9XzniikcQQMe_predicted_structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.241Z"
+        }
+      },
+      "created_at": "2026-11-11T20:07:07.290Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "NANO1"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "QVKLEESGGGLVQAGRSLRLSCAASEHTFSKYTVGWFRQAPGKERESVALLTKNGDLTGYAPSVAGRFTISRDNAKKTLYLQMNSLKPEDTAVYYCAAAEHPTTLESYDSWGQGTQVTVSS"
+        }
+      ],
+      "id": "pres_aVH98dJyqiVbqHCRgMUJ",
+      "metrics": {
+        "binding_confidence": 2.350372696132644e-06,
+        "helix_fraction": 0.07438015937805176,
+        "iptm": 0.7632086277008057,
+        "loop_fraction": 0.44628098607063293,
+        "min_interaction_pae": 3.5400609970092773,
+        "sheet_fraction": 0.4793388247489929,
+        "structure_confidence": 0.5773206949234009
+      }
+    },
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_gFi27LO9waieDJJ0IdSd_archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.244Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_gFi27LO9waieDJJ0IdSd_predicted_structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.241Z"
+        }
+      },
+      "created_at": "2026-11-11T20:07:09.540Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "NANO1"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "QVKLEESGGGLVQAGRSLRLSCAASEHTFSKYDVAWFRQAPGKERESVALLTKDAAFTSYASSVEGRFTISRDNAKKTLYLQMNSLKPEDTAVYYCAASTQANGVTGFSSWGQGTQVTVSS"
+        }
+      ],
+      "id": "pres_tPgIWONuccFkmjz26uDN",
+      "metrics": {
+        "binding_confidence": 2.9563063890236664e-07,
+        "helix_fraction": 0.06611569970846176,
+        "iptm": 0.33174553513526917,
+        "loop_fraction": 0.45454543828964233,
+        "min_interaction_pae": 14.628482818603516,
+        "sheet_fraction": 0.4793388247489929,
+        "structure_confidence": 0.14996053278446198
+      }
+    },
+    {
+      "artifacts": {
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_x6OxgZyUjHKDK3yIIPEq_archive.tar.gz?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.244Z"
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/prot_des_Axq4ZuVtsHxjeBaQlCnr/output/public/pred_x6OxgZyUjHKDK3yIIPEq_predicted_structure.cif?<presigned-query-redacted>",
+          "url_expires_at": "2026-11-11T20:41:23.241Z"
+        }
+      },
+      "created_at": "2026-11-11T20:07:13.369Z",
+      "entities": [
+        {
+          "chain_ids": [
+            "NANO1"
+          ],
+          "modifications": [],
+          "type": "protein",
+          "value": "QVKLEESGGGLVQAGRSLRLSCAASEHTFSKYDVGWFRQAPGKERESVATLSKNEAVVGYAPDVAGRFTISRDNAKKTLYLQMNSLKPEDTAVYYCAAGSQADGLQSFSSWGQGTQVTVSS"
+        }
+      ],
+      "id": "pres_kboMfs5YakQ1qYZlL7LV",
+      "metrics": {
+        "binding_confidence": 1.8156479629375562e-06,
+        "helix_fraction": 0.04958677291870117,
+        "iptm": 0.6086535453796387,
+        "loop_fraction": 0.41322311758995056,
+        "min_interaction_pae": 7.242898464202881,
+        "sheet_fraction": 0.5371900796890259,
+        "structure_confidence": 0.3998909592628479
+      }
+    }
+  ]
+}

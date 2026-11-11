@@ -48,3 +48,6 @@ apps/api/data/
 
 # Raw Boltz API captures (sanitised copies live in tests/fixtures/boltz/)
 .boltz-capture/
+
+# Live probe state (a run id, so a re-attach does not start a second billed run)
+apps/api/.live_probe_run.json

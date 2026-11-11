@@ -194,7 +194,21 @@ class Candidate(BaseModel):
     project_id: str
     engine_result_id: str
     sequences: list[str] = Field(default_factory=list)
+    """The designed binder sequence(s).
+
+    A live result's ``entities`` contain **only** the designed binder; the
+    target is not repeated there, although it is present in the structure file.
+    Verified on a live KPC-2 run: one protein entity of 116-121 residues on
+    chain ``NANO1``, while the structure held both that and the 261-residue
+    target on chain ``A``.
+    """
     chain_ids: list[str] = Field(default_factory=list)
+    binder_chain_ids: list[str] = Field(default_factory=list)
+    """Chains in the structure that are the designed binder. The viewer colours
+    these differently from the target, and the export labels them."""
+    target_chain_ids: list[str] = Field(default_factory=list)
+    """Chains carried over from the submitted target, which keep their original
+    identifiers."""
     metrics: CandidateMetrics
     warnings: list[dict[str, str]] = Field(default_factory=list)
     structure_key: str | None = None
@@ -230,7 +244,12 @@ class RankedCandidateOut(BaseModel):
     candidate: Candidate
     rank: int
     score: Decimal
+    """Relative to this run only. A run in which nothing binds still has a
+    candidate scoring near 1.0, so never present this without the band."""
     percentile: Decimal
+    binding_confidence: float | None = None
+    binding_band: str = "not reported"
+    """high / moderate / low / negligible, over the model's absolute output."""
     verdict: str
     explanation: str
     contributions: list[MetricContributionOut] = Field(default_factory=list)
@@ -249,6 +268,13 @@ class RankedCandidateList(BaseModel):
     excluded: list[dict[str, str]] = Field(default_factory=list)
     constant_metrics: list[str] = Field(default_factory=list)
     metrics_absent_everywhere: list[str] = Field(default_factory=list)
+    best_binding_confidence: float | None = None
+    nothing_predicted_to_bind: bool = False
+    """True when no candidate reaches even the low band. A run can be perfectly
+    ordered and still contain nothing worth testing."""
+    assessment: str = ""
+    """A plain statement of what the absolute numbers mean for this run,
+    independent of the ordering."""
     caveat: str = (
         "Scores are computational prioritisation from a predictive model, "
         "relative to the other candidates in this run. They do not indicate that "

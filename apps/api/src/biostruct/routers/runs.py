@@ -393,6 +393,8 @@ async def rank_run_candidates(
                 rank=ranked.rank,
                 score=ranked.score,
                 percentile=ranked.percentile,
+                binding_confidence=ranked.binding_confidence,
+                binding_band=ranked.binding_band,
                 verdict=verdict_for(ranked),
                 explanation=explain(ranked, result),
                 contributions=[
@@ -421,6 +423,9 @@ async def rank_run_candidates(
         excluded=[{"candidate_id": cid, "reason": why} for cid, why in result.excluded],
         constant_metrics=list(result.constant_metrics),
         metrics_absent_everywhere=list(result.metrics_absent_everywhere),
+        best_binding_confidence=result.best_binding_confidence,
+        nothing_predicted_to_bind=result.nothing_predicted_to_bind,
+        assessment=result.absolute_assessment,
     )
 
 

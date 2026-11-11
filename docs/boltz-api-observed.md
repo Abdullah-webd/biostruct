@@ -135,28 +135,71 @@ fetch later.
 ## Test mode: what it does and does not prove
 
 Test-mode keys are free and unbilled. They exercise the real request and
-response path, which is exactly what the adapter needs. They do **not** produce
-science.
+response path, which is what the adapter needs. They do **not** produce science,
+and a live run on 2026-11-11 showed the differences are larger than expected.
 
-| Proven by test mode | Not proven by test mode |
+| | Test mode | Live mode (verified) |
+|---|---|---|
+| Structure artifact | **522-byte stub**, `data_test_fixture`, 3 atoms | **261 KB ModelCIF**, 2,871 atoms, the full complex |
+| Protein entities per result | **two**, random lengths | **one** — only the designed binder |
+| Chain ids | `A`, `B` | binder `NANO1`, target keeps `A` |
+| `binding_confidence` | ~0.7 | **~1e-6** |
+| `ipsae_min` | absent | **also absent** (0 of 10) |
+| Duration | ~10 seconds | ~minutes |
+
+### Which chain is the designed binder (settled)
+
+A live result's `entities` list contains **only the designed binder** — the
+target is not repeated there. The structure file contains both:
+
+```
+chain 'A'      : 261 residues -> AEPFAKLEQDFGGSIGVYAMDTGSGATVSYRAEERFPLCSS...  (KPC-2 target)
+chain 'NANO1'  : 121 residues -> QVKLEESGGGLVQAGRSLRLSCAASEHTFSKYTVGWFRQAP...  (designed nanobody)
+```
+
+That binder sequence begins `QVKLEESGGGLVQAGRSLRLSCAAS`, which is a genuine VHH
+framework, and 121 residues is nanobody-sized.
+
+The rule we implement does not depend on the `NANO1` naming: **the target keeps
+the chain id that was submitted, so any other chain in the result is designed.**
+Candidates store `binder_chain_ids` and `target_chain_ids` explicitly.
+
+### The structure artifact is ModelCIF
+
+`data_model`, with `_struct.pdbx_structure_determination_methodology
+computational` and a ModelCIF dictionary reference. A standard `_atom_site` loop
+with 19 columns including `auth_asym_id`, `label_comp_id` and `label_seq_id`, so
+Mol\* can read it directly. Saved as
+`apps/api/tests/fixtures/boltz/structure_live_mode.cif` and kept permanently, so
+the viewer never needs another paid run to be tested.
+
+### `binding_confidence` is on a completely different scale in live mode
+
+This is the most important finding, and the one most likely to have caused real
+harm.
+
+| | |
 |---|---|
-| Request schema is accepted | Whether designs are any good |
-| Response shapes and field names | Whether `ipsae_min` appears in live runs |
-| Status transitions, pagination, cursors | Real structure geometry |
-| Cost arithmetic and tiering | Which chain is the designed binder |
-| Error mapping | Real run duration (test finishes in ~10s) |
+| Test mode | 0.7286, 0.7889, 0.7177 |
+| Live mode | 2.35e-06, 1.82e-06, 8.88e-07, down to 2.75e-07 |
 
-Two specific gaps to close with a live run before M4:
+Roughly **300,000 times smaller**. For ten nanobody designs against KPC-2 that
+is scientifically unsurprising — a real campaign generates thousands and expects
+almost all of them to fail — but it broke our ranking's honesty.
 
-1. **The structure artifact is a 522-byte stub** beginning `data_test_fixture`
-   with 3 ATOM records. Mol\* cannot be validated against it.
-2. **Chain identity is not determinable.** Results contain two protein chains
-   (A and B) of synthetic, varying lengths — neither matches KPC-2's 293
-   residues. So the rule for "which chain is the designed binder" cannot be
-   established from test data. The FASTA export and the viewer both need it, so
-   it must be settled against a live run.
+Ranking normalises **within a run**, so the best of ten hopeless designs still
+scores near 1.0. Before this run, the platform described a design with a
+0.0000024 predicted binding probability as *"promising"*. See
+[docs/residue-numbering.md](residue-numbering.md) for the other member of this
+family of silent errors.
 
----
+The fix (ADR-030): a relative score and an absolute band are reported
+separately. Display bands over the model's raw output — high ≥ 0.5, moderate
+≥ 0.1, low ≥ 0.01, otherwise negligible — are presentation thresholds, not
+validated cutoffs, and the raw value is always shown. A negligible band yields
+the verdict `no_predicted_binding` regardless of rank, the run is flagged
+`nothing_predicted_to_bind`, and every explanation now **leads with the absolute
+value** rather than the flattering rank.
 
 ## Permissions: `/admin/usage` needs an admin key
 

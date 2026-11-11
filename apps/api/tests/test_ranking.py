@@ -383,13 +383,18 @@ class TestExplanation:
 
     def test_verdict_bands(self) -> None:
         result = rank_candidates([candidate(f"c{i}", binding=i / 10) for i in range(1, 11)])
-        assert verdict_for(result.ranked[0]) == "promising"
-        assert verdict_for(result.ranked[-1]) == "weak"
+        # Even the best wording is about ordering a queue, not about efficacy.
+        assert verdict_for(result.ranked[0]) == "worth_testing_first"
+        # The weakest has a binding confidence of 0.1, which is the moderate
+        # floor, so it is weak on the composite rather than a non-binder.
+        assert verdict_for(result.ranked[-1]) in ("weak", "mixed")
 
-    def test_verdict_is_about_rank_not_efficacy(self) -> None:
-        """A single candidate is top of its field, which says nothing about quality."""
-        result = rank_candidates([candidate("only", binding=0.01)])
-        assert verdict_for(result.ranked[0]) in ("promising", "mixed", "weak")
+    def test_being_top_of_a_hopeless_field_is_not_encouraging(self) -> None:
+        """A single candidate is always rank 1, which says nothing about quality."""
+        result = rank_candidates([candidate("only", binding=1e-6)])
+        assert result.ranked[0].rank == 1
+        assert result.ranked[0].score >= Decimal("0.5")
+        assert verdict_for(result.ranked[0]) == "no_predicted_binding"
 
 
 class TestRealisticRun:

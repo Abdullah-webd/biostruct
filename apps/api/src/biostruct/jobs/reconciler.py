@@ -338,6 +338,15 @@ class Reconciler:
             engine_result_id=result.result_id,
             sequences=[e.value for e in result.protein_entities],
             chain_ids=[c for e in result.protein_entities for c in e.chain_ids],
+            # Chain roles, determined rather than guessed. A live result's
+            # entities contain only the designed binder, and the target keeps
+            # the chain id we submitted, so anything that is not that chain is
+            # designed. Verified on a live KPC-2 run: binder on NANO1, target
+            # on A (docs/boltz-api-observed.md).
+            binder_chain_ids=[
+                c for e in result.protein_entities for c in e.chain_ids if c != run.epitope_chain_id
+            ],
+            target_chain_ids=[run.epitope_chain_id] if run.epitope_chain_id else [],
             metrics={
                 "structure_confidence": metrics.structure_confidence,
                 "binding_confidence": metrics.binding_confidence,

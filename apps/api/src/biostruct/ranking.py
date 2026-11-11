@@ -50,6 +50,38 @@ METRIC_LABELS: dict[str, str] = {
 
 SCORE_PLACES = Decimal("0.0001")
 
+# Display bands over the model's own ``binding_confidence``.
+#
+# These exist because of something a live run revealed and test mode hid.
+# Test-mode results report binding_confidence around 0.7; a real run against
+# KPC-2 reported values around 1e-6 — roughly 300,000 times smaller. The score
+# in this module is normalised *within a run*, so the best of ten hopeless
+# designs still scores near 1.0. Reporting that as "promising" would tell a
+# researcher that a design with a 0.0000024 binding probability is worth
+# pursuing, which is precisely the overstatement this platform exists to avoid.
+#
+# So the relative score answers "which of these first?" and these bands answer
+# "is any of them actually worth anything?". They are presentation thresholds
+# over an uncalibrated model output, not validated scientific cutoffs, and the
+# raw value is always shown alongside.
+BINDING_BANDS: tuple[tuple[Decimal, str], ...] = (
+    (Decimal("0.5"), "high"),
+    (Decimal("0.1"), "moderate"),
+    (Decimal("0.01"), "low"),
+)
+NEGLIGIBLE_BAND = "negligible"
+
+
+def binding_band(binding_confidence: float | None) -> str:
+    """Which absolute band a binding confidence falls in."""
+    if binding_confidence is None:
+        return "not reported"
+    value = Decimal(str(binding_confidence))
+    for threshold, name in BINDING_BANDS:
+        if value >= threshold:
+            return name
+    return NEGLIGIBLE_BAND
+
 
 class RankingError(ValueError):
     """The inputs cannot be ranked as given."""
@@ -144,8 +176,16 @@ class RankedCandidate:
     candidate_id: str
     rank: int
     score: Decimal
-    """0 to 1, relative to the other candidates in this run."""
+    """Relative to the other candidates in this run, 0 to 1.
+
+    **Not** a measure of quality. A run where nothing binds still produces a
+    candidate scoring near 1.0, so this must always be read together with
+    ``binding_confidence`` and ``binding_band``.
+    """
     percentile: Decimal
+    binding_confidence: float | None = None
+    """The raw, absolute value, carried so nothing has to re-derive it."""
+    binding_band: str = "not reported"
     contributions: tuple[MetricContribution, ...] = ()
     missing_metrics: tuple[str, ...] = ()
     weight_redistributed: bool = False
@@ -174,6 +214,45 @@ class RankingResult:
     constant_metrics: tuple[str, ...] = ()
     """Metrics identical across every candidate, so they did not affect the order."""
     metrics_absent_everywhere: tuple[str, ...] = ()
+    best_binding_confidence: float | None = None
+    """The highest absolute binding confidence in the run."""
+
+    @property
+    def best_binding_band(self) -> str:
+        return binding_band(self.best_binding_confidence)
+
+    @property
+    def nothing_predicted_to_bind(self) -> bool:
+        """True when no candidate reaches even the low band.
+
+        A run can be internally well-ordered and still contain nothing worth
+        testing. Saying so is the honest outcome, and it points at the real
+        answer, which is to generate far more designs.
+        """
+        return bool(self.ranked) and self.best_binding_band == NEGLIGIBLE_BAND
+
+    @property
+    def absolute_assessment(self) -> str:
+        if not self.ranked:
+            return "No candidates could be scored."
+        best = self.best_binding_confidence
+        if best is None:
+            return (
+                "Binding confidence was not reported for this run, so candidates "
+                "are ordered on interface and fold confidence alone."
+            )
+        if self.nothing_predicted_to_bind:
+            return (
+                f"No candidate in this run reaches a meaningful predicted binding "
+                f"probability; the highest is {best:.2e}. The ordering below shows "
+                "which to look at first, but on the model's own output none of them "
+                "is expected to bind. A real campaign generates thousands of designs "
+                "rather than tens."
+            )
+        return (
+            f"The highest predicted binding confidence in this run is {best:.2e} "
+            f"({self.best_binding_band} band)."
+        )
 
     @property
     def count(self) -> int:
@@ -295,6 +374,8 @@ def rank_candidates(inputs: Sequence[MetricInput], weights: Weights | None = Non
                 rank=0,  # assigned after sorting
                 score=_quantize(score),
                 percentile=Decimal("0"),
+                binding_confidence=candidate.binding_confidence,
+                binding_band=binding_band(candidate.binding_confidence),
                 contributions=tuple(contributions),
                 missing_metrics=missing,
                 weight_redistributed=bool(missing),
@@ -317,6 +398,8 @@ def rank_candidates(inputs: Sequence[MetricInput], weights: Weights | None = Non
                 if total == 1
                 else Decimal(total - index - 1) * Decimal("100") / Decimal(total - 1)
             ),
+            binding_confidence=c.binding_confidence,
+            binding_band=c.binding_band,
             contributions=c.contributions,
             missing_metrics=c.missing_metrics,
             weight_redistributed=c.weight_redistributed,
@@ -324,28 +407,38 @@ def rank_candidates(inputs: Sequence[MetricInput], weights: Weights | None = Non
         for index, c in enumerate(ranked)
     )
 
+    binding_values = [c.binding_confidence for c in finalised if c.binding_confidence is not None]
     return RankingResult(
         ranked=finalised,
         excluded=excluded,
         weights=active_weights,
         constant_metrics=tuple(m for m in RANKED_METRICS if m in constant),
         metrics_absent_everywhere=tuple(absent_everywhere),
+        best_binding_confidence=max(binding_values) if binding_values else None,
     )
 
 
 # --- explanation -----------------------------------------------------------
 
-Verdict = Literal["promising", "mixed", "weak"]
+Verdict = Literal["worth_testing_first", "mixed", "weak", "no_predicted_binding"]
 
 
 def verdict_for(candidate: RankedCandidate) -> Verdict:
-    """A coarse band, from the score alone.
+    """A coarse band from the absolute binding confidence *and* the relative score.
 
-    Deliberately coarse and deliberately not a claim about efficacy: these are
-    model confidences, not measurements.
+    Relative position alone may never produce an encouraging verdict. Before
+    this took the absolute value into account, the best of ten designs with
+    binding confidences around 1e-6 was reported as "promising" — a design the
+    model puts at roughly a two-in-a-million chance of binding. A live run
+    caught it; test mode could not, because its synthetic values sit near 0.7.
+
+    Note the wording: even the best band says "worth testing first", which is a
+    statement about ordering a wet-lab queue, not about whether anything works.
     """
-    if candidate.score >= Decimal("0.7"):
-        return "promising"
+    if candidate.binding_band == NEGLIGIBLE_BAND:
+        return "no_predicted_binding"
+    if candidate.binding_band in ("high", "moderate") and candidate.score >= Decimal("0.6"):
+        return "worth_testing_first"
     if candidate.score >= Decimal("0.4"):
         return "mixed"
     return "weak"
@@ -354,20 +447,40 @@ def verdict_for(candidate: RankedCandidate) -> Verdict:
 def explain(candidate: RankedCandidate, result: RankingResult) -> str:
     """A factual explanation built only from the numbers that produced the score.
 
-    Every figure quoted here exists in ``candidate``. This is what the
-    Scientific Review guardrail checks generated narratives against, so it must
-    never reach beyond the arithmetic — no efficacy, no potency, no claim that
-    anything will bind.
+    Every figure quoted here exists in ``candidate`` or ``result``. This is what
+    the Scientific Review guardrail checks generated narratives against, so it
+    must never reach beyond the arithmetic: no efficacy, no potency, no claim
+    that anything will bind.
+
+    The absolute binding confidence is stated **first**, before the rank,
+    because the rank is the more flattering number and leading with it is how a
+    reader ends up believing a 1e-6 binding probability is a result.
     """
-    parts: list[str] = [
-        f"Ranked {candidate.rank} of {result.count} in this run "
-        f"(score {candidate.score}, {candidate.percentile}th percentile)."
-    ]
+    parts: list[str] = []
+
+    if candidate.binding_confidence is not None:
+        if candidate.binding_band == NEGLIGIBLE_BAND:
+            parts.append(
+                f"Predicted binding confidence is {candidate.binding_confidence:.2e}, "
+                "which is negligible: on the model's own output this design is not "
+                "expected to bind the target."
+            )
+        else:
+            parts.append(
+                f"Predicted binding confidence is {candidate.binding_confidence:.4g} "
+                f"({candidate.binding_band} band)."
+            )
+
+    parts.append(
+        f"It ranks {candidate.rank} of {result.count} in this run "
+        f"(relative score {candidate.score}, {candidate.percentile}th percentile). "
+        "That ordering is within this run only and is not a measure of quality."
+    )
 
     strongest = candidate.strongest_metric
     if strongest is not None:
         parts.append(
-            f"Its strongest contribution is {strongest.label} at {strongest.raw}, "
+            f"Its strongest contribution is {strongest.label} at {strongest.raw:.4g}, "
             f"which is {strongest.normalised} on a 0-1 scale relative to the other "
             "candidates here."
         )
@@ -375,7 +488,7 @@ def explain(candidate: RankedCandidate, result: RankingResult) -> str:
     if weakest is not None and strongest is not None and weakest.metric != strongest.metric:
         direction = "lower" if weakest.higher_is_better else "higher"
         parts.append(
-            f"Its weakest is {weakest.label} at {weakest.raw} "
+            f"Its weakest is {weakest.label} at {weakest.raw:.4g} "
             f"({weakest.normalised} normalised); {direction} values are worse for "
             "this metric."
         )
@@ -391,6 +504,12 @@ def explain(candidate: RankedCandidate, result: RankingResult) -> str:
         names = ", ".join(METRIC_LABELS[m] for m in result.constant_metrics)
         parts.append(
             f"{names} was identical across every candidate, so it did not affect the ordering."
+        )
+    if result.nothing_predicted_to_bind:
+        parts.append(
+            "No candidate in this run reaches a meaningful predicted binding "
+            "probability, so the ordering says which to examine first, not which "
+            "to pursue. Generating far more designs is the usual next step."
         )
 
     parts.append(
