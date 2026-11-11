@@ -92,4 +92,5 @@ confirmation, every project has a hard budget, and the account carries an indepe
 
 ## Licence
 
-[MIT](LICENSE).
+[MIT](LICENSE) for the code. See [NOTICE](NOTICE) for what the software does not claim,
+and for who owns the sequences and structures it generates (the researcher, not us).

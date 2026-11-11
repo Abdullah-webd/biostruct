@@ -1,0 +1,16 @@
+NOT A MEDICAL DEVICE. NOT FOR CLINICAL USE.
+
+Biostruct performs computational prioritisation of candidate therapeutic
+proteins. Its outputs are model predictions, not evidence of therapeutic
+effect, safety, or efficacy. No sequence or structure it produces is a drug.
+
+Experimental validation is required before any output is relied upon for any
+purpose. Nothing produced by this software should be used to guide the
+treatment of any patient.
+
+The software is licensed under the MIT License (see LICENSE). This notice does
+not restrict those rights; it states what the software does and does not claim.
+
+Designed sequences, structures and reports produced by a user of a Biostruct
+deployment belong to that user. The MIT licence covers this source code, not
+the outputs generated with it.

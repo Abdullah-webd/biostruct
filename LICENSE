@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOT A MEDICAL DEVICE. NOT FOR CLINICAL USE.
-
-This software performs computational prioritisation of candidate therapeutic
-proteins. Its outputs are model predictions, not evidence of therapeutic
-effect, safety, or efficacy. No sequence or structure it produces is a drug.
-Experimental validation is required before any output is relied upon for any
-purpose. Nothing produced by this software should be used to guide the
-treatment of any patient.
