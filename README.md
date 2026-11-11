@@ -61,8 +61,14 @@ interactive page you can click the whole workflow through.
 
 ```bash
 cp .env.example .env     # add BOLTZ_API_KEY and OPENAI_API_KEY
-make up                  # MongoDB + API in Docker
+make dev                 # runs the API on http://localhost:8000
 ```
+
+`make dev` runs the API directly on your machine. If your Docker runs in a VM
+(Colima, Rancher Desktop, Podman machine) then `make up` will start a perfectly
+healthy container whose port never reaches your browser, which looks exactly
+like a broken app. Running it natively avoids that. It uses `MONGODB_URI` from
+`.env`, so with an Atlas connection string no local database is needed.
 
 Then open **http://localhost:8000/docs** and follow the order in the banner:
 

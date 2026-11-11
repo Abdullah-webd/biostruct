@@ -181,6 +181,20 @@ replica-set support is unverified — we check in M0, and if it works we can con
 
 ---
 
+## Running it locally
+
+`make dev` runs the API natively and is the path to prefer.
+
+If your Docker is **Colima**, Rancher Desktop or Podman machine, containers run
+inside a Linux VM and published ports do not necessarily reach macOS. The
+container reports healthy, `docker port` shows `0.0.0.0:8000`, and
+`curl http://localhost:8000` still fails — which is indistinguishable from a
+broken application. Confirmed on this project with Colima on
+Virtualization.Framework.
+
+`make test` keeps using Docker regardless, because the suite needs a MongoDB
+replica set and reaches it over the container network rather than the host.
+
 ## Security rules for this project
 
 - `.env` is gitignored; `.env.example` holds names only, never values. Confirmed with

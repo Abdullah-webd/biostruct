@@ -77,7 +77,23 @@ services:
       - path: .env
         required: false
     ports:
-      - "8000:8000"
+      # Bound on all interfaces explicitly. Without the 0.0.0.0 prefix Docker
+      # Desktop occasionally publishes in a way the host browser cannot reach.
+      - "0.0.0.0:8000:8000"
+    # So that `docker compose ps` and `--wait` report real readiness rather
+    # than merely "the process started". This is what makes a failure to serve
+    # visible instead of something to guess at.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          python -c "import urllib.request,sys;
+          sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',
+          timeout=5).status == 200 else 1)"
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 15s
     profiles: ["app"]
 
 volumes:

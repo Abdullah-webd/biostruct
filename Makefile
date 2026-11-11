@@ -1,10 +1,17 @@
 # Biostruct developer commands.
 #
-# Everything runs through Docker, so the only prerequisites are Docker and a
-# .env with BOLTZ_API_KEY and OPENAI_API_KEY. See docs/credentials.md.
+# `make dev` runs the API directly on this machine and is the recommended way
+# to use it: Docker runtimes that use a VM (Colima, Rancher, Podman machine)
+# keep published ports inside that VM, so a containerised API is often
+# unreachable from the host browser even though the container is healthy.
+#
+# Tests still run in Docker, because they need a MongoDB replica set and the
+# container network reaches it by service name.
+#
+# Needs a .env with BOLTZ_API_KEY and OPENAI_API_KEY. See docs/credentials.md.
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs test lint verify-boltz verify-sources verify-e2e reset status
+.PHONY: help dev up down logs test lint verify-boltz verify-sources verify-e2e reset status
 
 help: ## Show this help
 	@echo "Biostruct"
@@ -12,9 +19,20 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Start here:  make up  then open http://localhost:8000/docs"
+	@echo "Start here:  make dev   then open http://localhost:8000/docs"
 
-up: ## Start MongoDB and the API, then show where to go
+dev: ## Run the API natively on this Mac (recommended; no Docker networking)
+	@# Colima and similar Docker runtimes keep published ports inside their VM,
+	@# so a containerised API is often unreachable from the host browser.
+	@# Running uvicorn directly avoids that entirely. Uses MONGODB_URI from
+	@# .env, which points at Atlas, so no local database is needed.
+	@test -d apps/api/.venv || (echo "No venv. Run: cd apps/api && uv venv --python 3.12 && uv pip install -e '.[dev]'" && exit 1)
+	@echo "Starting the API on http://localhost:8000"
+	@echo "Open http://localhost:8000/docs  (Ctrl-C to stop)"
+	@echo ""
+	cd apps/api && .venv/bin/uvicorn biostruct.main:app --reload --host 127.0.0.1 --port 8000
+
+up: ## Start MongoDB and the API in Docker (needs working port forwarding)
 	docker compose --profile app up -d --wait --build
 	@echo ""
 	@echo "API      : http://localhost:8000"
