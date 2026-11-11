@@ -89,8 +89,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "therapeutic effect."
         ),
         lifespan=lifespan,
-        # Interactive docs are useful in development and an unnecessary surface in production.
-        docs_url=None if cfg.env is Env.prod else "/docs",
+        # Interactive docs are useful in development and an unnecessary surface
+        # in production. The default /docs route is disabled because we serve a
+        # custom one below that can satisfy our CSRF check.
+        docs_url=None,
         redoc_url=None,
         openapi_url=None if cfg.env is Env.prod else "/openapi.json",
     )
@@ -109,6 +111,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(StarletteHTTPException, errors.http_exception_handler)
     app.add_exception_handler(RequestValidationError, errors.validation_handler)
 
+    if cfg.env is not Env.prod:
+        _add_interactive_docs(app)
+
     app.include_router(health.router)
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(projects.router, prefix=API_PREFIX)
@@ -116,6 +121,59 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(runs.router, prefix=API_PREFIX)
 
     return app
+
+
+def _add_interactive_docs(app: FastAPI) -> None:
+    """Serve Swagger UI that can actually drive this API.
+
+    Swagger UI sends cookies but will not add our ``x-csrf-token`` header, so
+    every POST and PUT from the default page is refused. A request interceptor
+    copies the token out of the readable CSRF cookie, which is exactly what the
+    real web client does — and it is the difference between docs you can read
+    and docs you can click through.
+
+    Development and staging only; there is no interactive page in production.
+    """
+    from fastapi.openapi.docs import get_swagger_ui_html
+    from fastapi.responses import HTMLResponse
+
+    interceptor = """
+    (request) => {
+      const match = document.cookie.match(/(?:^|; )biostruct_csrf=([^;]*)/);
+      if (match) { request.headers['x-csrf-token'] = decodeURIComponent(match[1]); }
+      request.credentials = 'same-origin';
+      return request;
+    }
+    """
+
+    @app.get("/docs", include_in_schema=False)
+    async def interactive_docs() -> HTMLResponse:
+        response = get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title="Biostruct API",
+            swagger_ui_parameters={
+                "requestInterceptor": "REQUEST_INTERCEPTOR",
+                "persistAuthorization": True,
+                "tryItOutEnabled": True,
+                "displayRequestDuration": True,
+                "docExpansion": "list",
+            },
+        )
+        html = bytes(response.body).decode()
+        # The parameter has to be a function, not a string, so splice it in.
+        html = html.replace('"REQUEST_INTERCEPTOR"', interceptor)
+        banner = (
+            '<div style="background:#0f172a;color:#e2e8f0;padding:12px 20px;'
+            'font:14px/1.5 ui-sans-serif,system-ui,sans-serif">'
+            "<strong>Biostruct API</strong> &mdash; start with "
+            "<code>POST /auth/register</code>, then follow the workflow: "
+            "targets/search &rarr; targets &rarr; epitope &rarr; runs/estimate "
+            "&rarr; runs &rarr; runs/{id}/ranking. "
+            "CSRF is handled for you on this page."
+            "</div>"
+        )
+        html = html.replace("<body>", f"<body>{banner}")
+        return HTMLResponse(html)
 
 
 app = create_app()

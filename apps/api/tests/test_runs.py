@@ -419,3 +419,116 @@ class TestReadsAndControl:
         self, api: Api, stub_sources: StubSources, engine: FakeEngine
     ) -> None:
         assert (await api.get("/projects/x/runs")).status_code == 401
+
+
+class TestRankingEndpoint:
+    """Ranking is computed on read from stored metrics, so a re-rank is free."""
+
+    async def _run_with_candidates(self, api: Api, engine: FakeEngine) -> tuple[str, str]:
+        from biostruct.jobs.reconciler import Reconciler
+        from biostruct.repositories.runs import RunRepository
+        from biostruct.storage import LocalDiskStorage
+
+        project_id, target_id = await ready_project(api)
+        created = await api.post(
+            f"/projects/{project_id}/runs",
+            {
+                "request": {"target_id": target_id, "num_proteins": 10},
+                "confirmed_cost_usd": "0.50",
+            },
+        )
+        run_id = created.json()["id"]
+
+        # Harvest through the reconciler so the candidates are real documents.
+        app = api.c._transport.app
+        db = app.state.db
+        import tempfile
+        from pathlib import Path
+
+        import httpx
+
+        def serve(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="data_x\n_atom_site.id\n")
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(serve)) as http:
+            reconciler = Reconciler(
+                db=db,
+                engine=engine,
+                storage=LocalDiskStorage(Path(tempfile.mkdtemp())),
+                http_client=http,
+            )
+            run = await RunRepository(db).get_unscoped(run_id)
+            assert run is not None
+            await reconciler.process(run)
+        return project_id, run_id
+
+    async def test_candidates_are_ranked_and_explained(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        r = await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["total"] == 3
+        assert [i["rank"] for i in body["items"]] == [1, 2, 3]
+        assert all(i["explanation"] for i in body["items"])
+
+    async def test_contributions_sum_to_the_score(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        """So a researcher can audit a score rather than trust it."""
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        body = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
+        for item in body["items"]:
+            total = sum(Decimal(c["contribution"]) for c in item["contributions"])
+            assert abs(total - Decimal(item["score"])) < Decimal("0.001")
+
+    async def test_absent_metric_is_redistributed_not_zeroed(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        body = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
+        assert body["metrics_absent_everywhere"] == ["ipsae_min"]
+        assert all(i["weight_redistributed"] for i in body["items"])
+
+    async def test_the_caveat_is_always_returned(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        """No response may present scores without saying what they are not."""
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        body = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
+        assert "therapeutic effect" in body["caveat"]
+        assert body["livemode"] is False
+
+    async def test_changing_weights_reranks_without_recomputation(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        before = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
+
+        # Weight PAE alone; the fake candidates have PAE descending as binding
+        # ascends, so the order must invert.
+        await api.put(
+            f"/projects/{project_id}/ranking-weights",
+            {
+                "binding_confidence": "0",
+                "iptm": "0",
+                "ipsae_min": "0",
+                "min_interaction_pae": "1",
+                "structure_confidence": "0",
+            },
+        )
+        after = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
+        assert [i["candidate"]["id"] for i in before["items"]] != [
+            i["candidate"]["id"] for i in after["items"]
+        ]
+        assert after["weights"]["min_interaction_pae"] == "1"
+
+    async def test_another_users_run_cannot_be_ranked(
+        self, api: Api, stub_sources: StubSources, engine: FakeEngine
+    ) -> None:
+        project_id, run_id = await self._run_with_candidates(api, engine)
+        await api.logout()
+        await api.register(email="other@example.org", password=GOOD_PASSWORD)
+        r = await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")
+        assert r.status_code == 404

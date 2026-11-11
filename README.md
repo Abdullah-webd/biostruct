@@ -54,19 +54,31 @@ See [docs/research.md §1](docs/research.md).
 
 ---
 
-## Getting started
+## Try it
 
-Nothing to run yet. Once M0 lands:
+The backend works today. There is no web UI yet, but the API ships with an
+interactive page you can click the whole workflow through.
 
 ```bash
-cp .env.example .env     # only BOLTZ_API_KEY and OPENAI_API_KEY are required
-docker compose up -d     # MongoDB (single-node replica set)
-uv sync                  # Python 3.12 deps
-pnpm install             # web deps
+cp .env.example .env     # add BOLTZ_API_KEY and OPENAI_API_KEY
+make up                  # MongoDB + API in Docker
 ```
 
-Two API keys and Docker is the whole setup — no cloud accounts needed to develop.
-See **[docs/credentials.md](docs/credentials.md)** for what each credential is and how to get it.
+Then open **http://localhost:8000/docs** and follow the order in the banner:
+
+1. `POST /auth/register` — any email, password of 12+ characters
+2. `POST /projects` — name it, with `infection.name`
+3. `POST /projects/{id}/targets/search` — try `protein_name:"carbapenem-hydrolyzing beta-lactamase KPC"`
+4. `POST /projects/{id}/targets` — `{"accession": "Q9F663"}` (KPC-2)
+5. `PUT  /projects/{id}/targets/{id}/epitope` — `{"pdb_id":"2OV5","chain_id":"A","author_residues":[70,73,130,166]}`
+6. `POST /projects/{id}/runs/estimate` then `POST /projects/{id}/runs` with the price it quoted
+7. `GET  /projects/{id}/runs/{id}/ranking` — scored, explained candidates
+
+With a test-mode Boltz key this is free and finishes in about ten seconds, and
+the results are synthetic. Every response says so.
+
+Other commands: `make test`, `make lint`, `make verify-e2e`, `make logs`, `make down`.
+Credentials are explained in **[docs/credentials.md](docs/credentials.md)**.
 
 ## Repository
 

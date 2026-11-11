@@ -209,6 +209,54 @@ class Candidate(BaseModel):
         return max(self.sequences, key=len) if self.sequences else ""
 
 
+class MetricContributionOut(BaseModel):
+    metric: str
+    label: str
+    raw: float
+    normalised: Decimal
+    weight: Decimal
+    contribution: Decimal
+    higher_is_better: bool
+    is_constant: bool = False
+
+
+class RankedCandidateOut(BaseModel):
+    """A candidate with its score and the arithmetic that produced it.
+
+    The contributions are included so a researcher can audit the score rather
+    than take it on trust. Nothing here comes from a language model (ADR-008).
+    """
+
+    candidate: Candidate
+    rank: int
+    score: Decimal
+    percentile: Decimal
+    verdict: str
+    explanation: str
+    contributions: list[MetricContributionOut] = Field(default_factory=list)
+    missing_metrics: list[str] = Field(default_factory=list)
+    weight_redistributed: bool = False
+
+
+class RankedCandidateList(BaseModel):
+    items: list[RankedCandidateOut]
+    total: int
+    run_status: RunStatus
+    livemode: bool
+    """False means synthetic test-mode results, which must never be read as
+    findings or exported as such (ADR-024)."""
+    weights: dict[str, Decimal] = Field(default_factory=dict)
+    excluded: list[dict[str, str]] = Field(default_factory=list)
+    constant_metrics: list[str] = Field(default_factory=list)
+    metrics_absent_everywhere: list[str] = Field(default_factory=list)
+    caveat: str = (
+        "Scores are computational prioritisation from a predictive model, "
+        "relative to the other candidates in this run. They do not indicate that "
+        "any candidate binds its target or has any therapeutic effect. "
+        "Experimental validation is required."
+    )
+
+
 class CandidateList(BaseModel):
     items: list[Candidate]
     total: int

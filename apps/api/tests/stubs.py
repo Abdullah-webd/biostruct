@@ -287,7 +287,10 @@ def fake_result(index: int, *, with_structure: bool = True) -> DesignResult:
             structure_confidence=0.80 + index / 100,
             binding_confidence=0.70 + index / 100,
             iptm=0.60 + index / 100,
-            min_interaction_pae=10.0 - index,
+            # Deliberately *rising* with the index, so binding confidence and
+            # interface error disagree. If they agreed, re-weighting could never
+            # change the order and the re-ranking tests would prove nothing.
+            min_interaction_pae=3.0 + index * 4,
             # Absent in practice, as observed on every live result.
             ipsae_min=None,
             helix_fraction=0.3,

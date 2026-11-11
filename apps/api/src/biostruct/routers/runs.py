@@ -50,6 +50,9 @@ from biostruct.models.run import (
     CandidateList,
     DesignRun,
     EstimateResponse,
+    MetricContributionOut,
+    RankedCandidateList,
+    RankedCandidateOut,
     RunCreate,
     RunRequest,
     RunStatus,
@@ -329,6 +332,95 @@ async def list_candidates(
         run_status=run.status,
         # Surfaced so a UI can never present synthetic results as findings.
         livemode=run.livemode,
+    )
+
+
+@router.get("/projects/{project_id}/runs/{run_id}/ranking")
+async def rank_run_candidates(
+    project_id: str,
+    run_id: str,
+    user: CurrentUser,
+    projects: ProjectsDep,
+    runs: RunsDep,
+    db: DbDep,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> RankedCandidateList:
+    """Rank this run's candidates and explain each score.
+
+    Computed on read from stored metrics, so changing the project's weights
+    re-ranks instantly and spends nothing (ARCHITECTURE.md §6.4).
+    """
+    from biostruct.ranking import (
+        MetricInput,
+        Weights,
+        explain,
+        rank_candidates,
+        verdict_for,
+    )
+    from biostruct.repositories.runs import CandidateRepository
+
+    project = await projects.get(project_id, user_id=user.id)
+    if project is None:
+        raise errors.not_found("Project")
+    run = await runs.get(run_id, project_id=project_id)
+    if run is None:
+        raise errors.not_found("Run")
+
+    repo = CandidateRepository(db)
+    candidates = await repo.list_for_run(run_id, limit=limit)
+    by_id = {c.id: c for c in candidates}
+
+    weights = Weights.from_mapping({k: v for k, v in project.ranking_weights.as_mapping().items()})
+    result = rank_candidates(
+        [
+            MetricInput(
+                candidate_id=c.id,
+                structure_confidence=c.metrics.structure_confidence,
+                binding_confidence=c.metrics.binding_confidence,
+                iptm=c.metrics.iptm,
+                min_interaction_pae=c.metrics.min_interaction_pae,
+                ipsae_min=c.metrics.ipsae_min,
+            )
+            for c in candidates
+        ],
+        weights,
+    )
+
+    return RankedCandidateList(
+        items=[
+            RankedCandidateOut(
+                candidate=by_id[ranked.candidate_id],
+                rank=ranked.rank,
+                score=ranked.score,
+                percentile=ranked.percentile,
+                verdict=verdict_for(ranked),
+                explanation=explain(ranked, result),
+                contributions=[
+                    MetricContributionOut(
+                        metric=c.metric,
+                        label=c.label,
+                        raw=c.raw,
+                        normalised=c.normalised,
+                        weight=c.weight,
+                        contribution=c.contribution,
+                        higher_is_better=c.higher_is_better,
+                        is_constant=c.is_constant,
+                    )
+                    for c in ranked.contributions
+                ],
+                missing_metrics=list(ranked.missing_metrics),
+                weight_redistributed=ranked.weight_redistributed,
+            )
+            for ranked in result.ranked
+            if ranked.candidate_id in by_id
+        ],
+        total=result.count,
+        run_status=run.status,
+        livemode=run.livemode,
+        weights=result.weights.as_mapping(),
+        excluded=[{"candidate_id": cid, "reason": why} for cid, why in result.excluded],
+        constant_metrics=list(result.constant_metrics),
+        metrics_absent_everywhere=list(result.metrics_absent_everywhere),
     )
 
 

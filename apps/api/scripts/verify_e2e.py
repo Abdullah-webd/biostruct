@@ -322,6 +322,83 @@ def main() -> int:
     except urllib.error.HTTPError as e:
         check("structure is served from our storage", False, f"HTTP {e.code}")
 
+    heading("8. Ranking, computed from stored metrics")
+    status, ranking = api.call("GET", f"/projects/{project_id}/runs/{run_id}/ranking")
+    check("ranking", status == 200, str(status))
+    if ranking:
+        print(f"      {ranking['total']} ranked")
+        print(f"      weights: { {k: v for k, v in ranking['weights'].items()} }")
+        if ranking["metrics_absent_everywhere"]:
+            print(f"      absent across the run: {ranking['metrics_absent_everywhere']}")
+        print()
+        for item in ranking["items"][:3]:
+            print(
+                f"      #{item['rank']} score={item['score']} "
+                f"({item['percentile']}th pct) verdict={item['verdict']}"
+            )
+            for c in item["contributions"]:
+                arrow = "higher better" if c["higher_is_better"] else "lower better"
+                flag = " [constant]" if c["is_constant"] else ""
+                print(
+                    f"           {c['label']:28s} raw={c['raw']:<8} "
+                    f"norm={c['normalised']} x{c['weight']} = {c['contribution']}"
+                    f"  ({arrow}){flag}"
+                )
+            print(f"           {item['explanation'][:150]}...")
+            print()
+
+        check(
+            "ranks are sequential",
+            [i["rank"] for i in ranking["items"]] == list(range(1, len(ranking["items"]) + 1)),
+        )
+        scores = [Decimal(i["score"]) for i in ranking["items"]]
+        check("scores descend", scores == sorted(scores, reverse=True))
+        check(
+            "contributions sum to the score",
+            all(
+                abs(
+                    sum(Decimal(c["contribution"]) for c in i["contributions"])
+                    - Decimal(i["score"])
+                )
+                < Decimal("0.001")
+                for i in ranking["items"]
+            ),
+        )
+        check("every score is explained", all(i["explanation"] for i in ranking["items"]))
+        check("the caveat is present", "therapeutic effect" in ranking["caveat"])
+        check(
+            "missing ipsae_min was redistributed, not zeroed",
+            all(i["weight_redistributed"] for i in ranking["items"]),
+        )
+
+        heading("9. Re-ranking with different weights costs nothing")
+        status, _ = api.call(
+            "PUT",
+            f"/projects/{project_id}/ranking-weights",
+            {
+                "binding_confidence": "0.05",
+                "iptm": "0.05",
+                "ipsae_min": "0.0",
+                "min_interaction_pae": "0.85",
+                "structure_confidence": "0.05",
+            },
+        )
+        check("weights updated", status == 200, str(status))
+        _, reranked = api.call("GET", f"/projects/{project_id}/runs/{run_id}/ranking")
+        if reranked:
+            before = [i["candidate"]["id"] for i in ranking["items"]]
+            after = [i["candidate"]["id"] for i in reranked["items"]]
+            print(f"      default order : {[b[:8] for b in before[:5]]}")
+            print(f"      PAE-weighted  : {[a[:8] for a in after[:5]]}")
+            check("the order changed", before != after)
+            top = reranked["items"][0]
+            pae = next(c for c in top["contributions"] if c["metric"] == "min_interaction_pae")
+            check(
+                "the new top candidate has the best interface error",
+                pae["normalised"] == "1.0000",
+                pae["normalised"],
+            )
+
     heading("RESULT")
     if _failures:
         print(f"{len(_failures)} check(s) failed:")
