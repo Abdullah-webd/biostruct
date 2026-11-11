@@ -10,7 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from biostruct import errors, security
 from biostruct.config import Settings, get_settings
 from biostruct.models.user import User
-from biostruct.repositories import ProjectRepository, UserRepository
+from biostruct.repositories import ProjectRepository, TargetRepository, UserRepository
+from biostruct.sources import ScienceSources
 
 
 def get_db(request: Request) -> AsyncIOMotorDatabase[dict[str, Any]]:
@@ -32,8 +33,27 @@ def get_projects(db: DbDep) -> ProjectRepository:
     return ProjectRepository(db)
 
 
+def get_targets(db: DbDep) -> TargetRepository:
+    return TargetRepository(db)
+
+
+def get_sources(request: Request) -> ScienceSources:
+    """One ScienceSources per process, created at startup.
+
+    Shared on purpose: it owns the HTTP connection pools and the rate-limit
+    token buckets, and a per-request instance would reset the buckets and let us
+    sail past NCBI's 3 requests/second.
+    """
+    sources = getattr(request.app.state, "sources", None)
+    if sources is None:  # pragma: no cover - only if startup was skipped
+        raise RuntimeError("science sources not initialised")
+    return sources  # type: ignore[no-any-return]
+
+
 UsersDep = Annotated[UserRepository, Depends(get_users)]
 ProjectsDep = Annotated[ProjectRepository, Depends(get_projects)]
+TargetsDep = Annotated[TargetRepository, Depends(get_targets)]
+SourcesDep = Annotated[ScienceSources, Depends(get_sources)]
 
 
 async def current_user(request: Request, users: UsersDep) -> User:

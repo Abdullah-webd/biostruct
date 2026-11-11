@@ -14,7 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from biostruct import __version__, errors
 from biostruct.config import Env, Settings, get_settings
 from biostruct.db import database, ensure_indexes, startup_checks
-from biostruct.routers import auth, health, projects
+from biostruct.routers import auth, health, projects, targets
+from biostruct.sources import ScienceSources
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +38,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.db = db
         await ensure_indexes(db)
         await startup_checks(db, strict=cfg.is_production)
+        # Shared across requests so the rate-limit buckets and connection pools
+        # are process-wide, not per-request.
+        app.state.sources = ScienceSources(
+            db=db,
+            ncbi_email=cfg.ncbi_email,
+            ncbi_api_key=cfg.ncbi_api_key.get_secret_value(),
+        )
         log.info(
             "started env=%s boltz_key_mode=%s storage=%s",
             cfg.env.value,
@@ -46,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await app.state.sources.aclose()
             await database.close()
 
     app = FastAPI(
@@ -80,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(projects.router, prefix=API_PREFIX)
+    app.include_router(targets.router, prefix=API_PREFIX)
 
     return app
 

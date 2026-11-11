@@ -85,6 +85,17 @@ async def ensure_indexes(db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         [("user_id", ASCENDING), ("created_at", DESCENDING)], name="projects_user_created"
     )
 
+    await db.targets.create_index(
+        [("project_id", ASCENDING), ("created_at", DESCENDING)], name="targets_project"
+    )
+    # One target per accession per project: adding the same target twice is a
+    # user mistake, not two distinct targets.
+    await db.targets.create_index(
+        [("project_id", ASCENDING), ("accession", ASCENDING)],
+        unique=True,
+        name="targets_project_accession_unique",
+    )
+
     # The source cache replaces Redis (ADR-003); documents remove themselves.
     await db.source_cache.create_index(
         [("expires_at", ASCENDING)], expireAfterSeconds=0, name="source_cache_ttl"

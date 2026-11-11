@@ -1,0 +1,629 @@
+{
+  "audit_author": [
+    {
+      "name": "Ke, W.",
+      "pdbx_ordinal": 1
+    },
+    {
+      "name": "Bethel, C.R.",
+      "pdbx_ordinal": 2
+    },
+    {
+      "name": "Thomson, J.M.",
+      "pdbx_ordinal": 3
+    },
+    {
+      "name": "Bonomo, R.A.",
+      "pdbx_ordinal": 4
+    },
+    {
+      "name": "van den Akker, F.",
+      "pdbx_ordinal": 5
+    }
+  ],
+  "cell": {
+    "Z_PDB": 9,
+    "angle_alpha": 90.0,
+    "angle_beta": 90.0,
+    "angle_gamma": 120.0,
+    "length_a": 116.245,
+    "length_b": 116.245,
+    "length_c": 52.001
+  },
+  "citation": [
+    {
+      "country": "US",
+      "id": "primary",
+      "journal_abbrev": "Biochemistry",
+      "journal_id_ASTM": "BICHAW",
+      "journal_id_CSD": "0033",
+      "journal_id_ISSN": "0006-2960",
+      "journal_volume": "46",
+      "page_first": "5732",
+      "page_last": "5740",
+      "pdbx_database_id_DOI": "10.1021/bi700300u",
+      "pdbx_database_id_PubMed": 17441734,
+      "rcsb_authors": [
+        "Ke, W.",
+        "Bethel, C.R.",
+        "Thomson, J.M.",
+        "Bonomo, R.A.",
+        "Akker, F."
+      ],
+      "rcsb_is_primary": "Y",
+      "rcsb_journal_abbrev": "Biochemistry",
+      "title": "Crystal Structure of KPC-2: Insights into Carbapenemase Activity in Class A beta-Lactamases.",
+      "year": 2007
+    }
+  ],
+  "database_2": [
+    {
+      "database_code": "2OV5",
+      "database_id": "PDB",
+      "pdbx_DOI": "10.2210/pdb2ov5/pdb",
+      "pdbx_database_accession": "pdb_00002ov5"
+    },
+    {
+      "database_code": "RCSB041624",
+      "database_id": "RCSB"
+    },
+    {
+      "database_code": "D_1000041624",
+      "database_id": "WWPDB"
+    }
+  ],
+  "diffrn": [
+    {
+      "ambient_temp": 100.0,
+      "crystal_id": "1",
+      "id": "1"
+    }
+  ],
+  "diffrn_detector": [
+    {
+      "detector": "CCD",
+      "diffrn_id": "1",
+      "type": "ADSC QUANTUM 315"
+    }
+  ],
+  "diffrn_radiation": [
+    {
+      "diffrn_id": "1",
+      "pdbx_diffrn_protocol": "SINGLE WAVELENGTH",
+      "pdbx_monochromatic_or_laue_m_l": "M",
+      "pdbx_scattering_type": "x-ray",
+      "wavelength_id": "1"
+    }
+  ],
+  "diffrn_source": [
+    {
+      "diffrn_id": "1",
+      "pdbx_synchrotron_beamline": "19-BM",
+      "pdbx_synchrotron_site": "APS",
+      "pdbx_wavelength_list": "0.970",
+      "source": "SYNCHROTRON",
+      "type": "APS BEAMLINE 19-BM"
+    }
+  ],
+  "entry": {
+    "id": "2OV5"
+  },
+  "exptl": [
+    {
+      "crystals_number": 1,
+      "method": "X-RAY DIFFRACTION"
+    }
+  ],
+  "exptl_crystal": [
+    {
+      "density_Matthews": 2.44,
+      "density_percent_sol": 49.65,
+      "id": "1"
+    }
+  ],
+  "exptl_crystal_grow": [
+    {
+      "crystal_id": "1",
+      "method": "VAPOR DIFFUSION, SITTING DROP",
+      "pH": 9.0,
+      "pdbx_details": "16% PEG6000, 0.1M bicine, pH 9, VAPOR DIFFUSION, SITTING DROP, temperature 293K",
+      "temp": 293.0
+    }
+  ],
+  "pdbx_audit_revision_category": [
+    {
+      "category": "chem_comp_atom",
+      "data_content_type": "Structure model",
+      "ordinal": 1,
+      "revision_ordinal": 4
+    },
+    {
+      "category": "chem_comp_bond",
+      "data_content_type": "Structure model",
+      "ordinal": 2,
+      "revision_ordinal": 4
+    },
+    {
+      "category": "database_2",
+      "data_content_type": "Structure model",
+      "ordinal": 3,
+      "revision_ordinal": 4
+    },
+    {
+      "category": "pdbx_initial_refinement_model",
+      "data_content_type": "Structure model",
+      "ordinal": 4,
+      "revision_ordinal": 4
+    },
+    {
+      "category": "struct_site",
+      "data_content_type": "Structure model",
+      "ordinal": 5,
+      "revision_ordinal": 4
+    },
+    {
+      "category": "pdbx_entry_details",
+      "data_content_type": "Structure model",
+      "ordinal": 6,
+      "revision_ordinal": 5
+    },
+    {
+      "category": "pdbx_modification_feature",
+      "data_content_type": "Structure model",
+      "ordinal": 7,
+      "revision_ordinal": 5
+    }
+  ],
+  "pdbx_audit_revision_details": [
+    {
+      "data_content_type": "Structure model",
+      "ordinal": 1,
+      "provider": "repository",
+      "revision_ordinal": 1,
+      "type": "Initial release"
+    }
+  ],
+  "pdbx_audit_revision_group": [
+    {
+      "data_content_type": "Structure model",
+      "group": "Version format compliance",
+      "ordinal": 1,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Version format compliance",
+      "ordinal": 2,
+      "revision_ordinal": 3
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Data collection",
+      "ordinal": 3,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Database references",
+      "ordinal": 4,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Derived calculations",
+      "ordinal": 5,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Refinement description",
+      "ordinal": 6,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Structure summary",
+      "ordinal": 7,
+      "revision_ordinal": 5
+    }
+  ],
+  "pdbx_audit_revision_history": [
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 0,
+      "ordinal": 1,
+      "revision_date": "2007-05-01T00:00:00.000+00:00"
+    },
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 1,
+      "ordinal": 2,
+      "revision_date": "2008-05-01T00:00:00.000+00:00"
+    },
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 2,
+      "ordinal": 3,
+      "revision_date": "2011-07-13T00:00:00.000+00:00"
+    },
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 3,
+      "ordinal": 4,
+      "revision_date": "2023-08-30T00:00:00.000+00:00"
+    },
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 4,
+      "ordinal": 5,
+      "revision_date": "2024-10-30T00:00:00.000+00:00"
+    }
+  ],
+  "pdbx_audit_revision_item": [
+    {
+      "data_content_type": "Structure model",
+      "item": "_database_2.pdbx_DOI",
+      "ordinal": 1,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_database_2.pdbx_database_accession",
+      "ordinal": 2,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_asym_id",
+      "ordinal": 3,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_comp_id",
+      "ordinal": 4,
+      "revision_ordinal": 4
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_seq_id",
+      "ordinal": 5,
+      "revision_ordinal": 4
+    }
+  ],
+  "pdbx_database_status": {
+    "deposit_site": "RCSB",
+    "pdb_format_compatible": "Y",
+    "process_site": "RCSB",
+    "recvd_initial_deposition_date": "2007-02-13T00:00:00.000+00:00",
+    "status_code": "REL",
+    "status_code_sf": "REL"
+  },
+  "pdbx_initial_refinement_model": [
+    {
+      "accession_code": "1DY6",
+      "details": "1DY6-A",
+      "id": 1,
+      "source_name": "PDB",
+      "type": "experimental model"
+    }
+  ],
+  "pdbx_reflns_twin": [
+    {
+      "crystal_id": "1",
+      "diffrn_id": "1",
+      "fraction": 0.42,
+      "operator": "h,-h-k,-l",
+      "type": "hemihedral"
+    }
+  ],
+  "pdbx_vrpt_summary": {
+    "attempted_validation_steps": "molprobity,validation-pack,xtriage,eds,mogul,validation_schema,percentiles,writexml,writecif,writepdf",
+    "ligands_for_buster_report": "N",
+    "report_creation_date": "2026-03-08T12:47:00.000+00:00"
+  },
+  "pdbx_vrpt_summary_diffraction": [
+    {
+      "B_factor_type": "FULL",
+      "CCP4_version": "9.0.010 (Gargrove)",
+      "DCC_R": 0.1491,
+      "DCC_Rfree": 0.186,
+      "EDS_R": 0.1244,
+      "EDS_res_high": 1.85,
+      "EDS_res_low": 29.06,
+      "Fo_Fc_correlation": 0.972,
+      "I_over_sigma": "2.27(1.85A)",
+      "Padilla_Yeates_L2_mean": 0.211,
+      "Padilla_Yeates_L_mean": 0.386,
+      "Wilson_B_aniso": "[19.695,19.695,20.359,-0.000,0.000,0.000]",
+      "Wilson_B_estimate": 19.887,
+      "acentric_outliers": 0,
+      "bulk_solvent_b": 19.483,
+      "bulk_solvent_k": 0.344,
+      "centric_outliers": 0,
+      "data_anisotropy": 0.033,
+      "data_completeness": 95.52,
+      "density_fitness_version": "1.0.12",
+      "exp_method": "x-ray",
+      "num_miller_indices": 64075,
+      "number_reflns_R_free": 2989,
+      "percent_RSRZ_outliers": 0.0,
+      "percent_free_reflections": 4.66,
+      "trans_NCS_details": "The largest off-origin peak in the Patterson function is 5.00% of the height of the origin peak. No significant pseudotranslation is detected.",
+      "twin_fraction": "-h,-k,l:0.117;h,-h-k,-l:0.419;-k,-h,-l:0.117"
+    }
+  ],
+  "pdbx_vrpt_summary_geometry": [
+    {
+      "angles_RMSZ": 0.94,
+      "bonds_RMSZ": 0.43,
+      "clashscore": 14.87,
+      "num_H_reduce": 5820,
+      "num_angles_RMSZ": 8121,
+      "num_bonds_RMSZ": 5967,
+      "percent_ramachandran_outliers": 0.26,
+      "percent_rotamer_outliers": 3.23
+    }
+  ],
+  "rcsb_accession_info": {
+    "deposit_date": "2007-02-13T00:00:00.000+00:00",
+    "has_released_experimental_data": "Y",
+    "initial_release_date": "2007-05-01T00:00:00.000+00:00",
+    "major_revision": 1,
+    "minor_revision": 4,
+    "revision_date": "2024-10-30T00:00:00.000+00:00",
+    "status_code": "REL"
+  },
+  "rcsb_entry_container_identifiers": {
+    "assembly_ids": [
+      "1",
+      "2",
+      "3"
+    ],
+    "entity_ids": [
+      "1",
+      "2",
+      "3"
+    ],
+    "entry_id": "2OV5",
+    "model_ids": [
+      1
+    ],
+    "non_polymer_entity_ids": [
+      "2"
+    ],
+    "polymer_entity_ids": [
+      "1"
+    ],
+    "pubmed_id": 17441734,
+    "rcsb_id": "2OV5"
+  },
+  "rcsb_entry_info": {
+    "assembly_count": 3,
+    "branched_entity_count": 0,
+    "cis_peptide_count": 3,
+    "deposited_atom_count": 6174,
+    "deposited_branched_entity_instance_count": 0,
+    "deposited_deuterated_water_count": 0,
+    "deposited_hydrogen_atom_count": 0,
+    "deposited_model_count": 1,
+    "deposited_modeled_polymer_monomer_count": 783,
+    "deposited_nonpolymer_entity_instance_count": 3,
+    "deposited_polymer_entity_instance_count": 3,
+    "deposited_polymer_monomer_count": 783,
+    "deposited_solvent_atom_count": 294,
+    "deposited_unmodeled_polymer_monomer_count": 0,
+    "diffrn_radiation_wavelength_maximum": 0.97,
+    "diffrn_radiation_wavelength_minimum": 0.97,
+    "diffrn_resolution_high": {
+      "provenance_source": "Depositor assigned",
+      "value": 1.85
+    },
+    "disulfide_bond_count": 3,
+    "entity_count": 3,
+    "experimental_method": "X-ray",
+    "experimental_method_count": 1,
+    "inter_mol_covalent_bond_count": 0,
+    "inter_mol_metalic_bond_count": 0,
+    "molecular_weight": 83.48,
+    "na_polymer_entity_types": "Other",
+    "nonpolymer_entity_count": 1,
+    "nonpolymer_molecular_weight_maximum": 0.16,
+    "nonpolymer_molecular_weight_minimum": 0.16,
+    "polymer_composition": "homomeric protein",
+    "polymer_entity_count": 1,
+    "polymer_entity_count_DNA": 0,
+    "polymer_entity_count_RNA": 0,
+    "polymer_entity_count_nucleic_acid": 0,
+    "polymer_entity_count_nucleic_acid_hybrid": 0,
+    "polymer_entity_count_protein": 1,
+    "polymer_entity_taxonomy_count": 1,
+    "polymer_molecular_weight_maximum": 27.66,
+    "polymer_molecular_weight_minimum": 27.66,
+    "polymer_monomer_count_maximum": 261,
+    "polymer_monomer_count_minimum": 261,
+    "resolution_combined": [
+      1.85
+    ],
+    "selected_polymer_entity_types": "Protein (only)",
+    "software_programs_combined": [
+      "HKL-2000",
+      "PDB_EXTRACT",
+      "PHASER",
+      "REFMAC"
+    ],
+    "solvent_entity_count": 1,
+    "structure_determination_methodology": "experimental",
+    "structure_determination_methodology_priority": 10
+  },
+  "rcsb_id": "2OV5",
+  "rcsb_primary_citation": {
+    "country": "US",
+    "id": "primary",
+    "journal_abbrev": "Biochemistry",
+    "journal_id_ASTM": "BICHAW",
+    "journal_id_CSD": "0033",
+    "journal_id_ISSN": "0006-2960",
+    "journal_volume": "46",
+    "page_first": "5732",
+    "page_last": "5740",
+    "pdbx_database_id_DOI": "10.1021/bi700300u",
+    "pdbx_database_id_PubMed": 17441734,
+    "rcsb_ORCID_identifiers": [
+      "?",
+      "?",
+      "?",
+      "?",
+      "?"
+    ],
+    "rcsb_authors": [
+      "Ke, W.",
+      "Bethel, C.R.",
+      "Thomson, J.M.",
+      "Bonomo, R.A.",
+      "Akker, F."
+    ],
+    "rcsb_journal_abbrev": "Biochemistry",
+    "title": "Crystal Structure of KPC-2: Insights into Carbapenemase Activity in Class A beta-Lactamases.",
+    "year": 2007
+  },
+  "refine": [
+    {
+      "B_iso_mean": 25.821,
+      "aniso_B_1_1": 0.232,
+      "aniso_B_1_2": -0.96,
+      "aniso_B_1_3": 0.0,
+      "aniso_B_2_2": 0.232,
+      "aniso_B_2_3": 0.0,
+      "aniso_B_3_3": -0.463,
+      "ls_R_factor_R_free": 0.19,
+      "ls_R_factor_R_work": 0.148,
+      "ls_d_res_high": 1.85,
+      "ls_d_res_low": 29.061,
+      "ls_number_reflns_R_free": 2989,
+      "ls_number_reflns_obs": 61501,
+      "pdbx_R_Free_selection_details": "5%, random",
+      "pdbx_diffrn_id": [
+        "1"
+      ],
+      "pdbx_ls_cross_valid_method": "R-free",
+      "pdbx_ls_sigma_F": 2573.0,
+      "pdbx_method_to_determine_struct": "MOLECULAR REPLACEMENT",
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "pdbx_starting_model": "1DY6-A",
+      "pdbx_stereochemistry_target_values": "Engh & Huber",
+      "solvent_model_param_bsol": 34.797
+    }
+  ],
+  "refine_hist": [
+    {
+      "cycle_id": "LAST",
+      "d_res_high": 1.85,
+      "d_res_low": 29.061,
+      "number_atoms_solvent": 294,
+      "number_atoms_total": 6174,
+      "pdbx_number_atoms_ligand": 33,
+      "pdbx_number_atoms_nucleic_acid": 0,
+      "pdbx_number_atoms_protein": 5847,
+      "pdbx_refine_id": "X-RAY DIFFRACTION"
+    }
+  ],
+  "refine_ls_restr": [
+    {
+      "dev_ideal": 0.006,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "p_bond_d"
+    },
+    {
+      "dev_ideal": 1.288,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "p_angle_d"
+    }
+  ],
+  "reflns": [
+    {
+      "d_resolution_high": 1.85,
+      "d_resolution_low": 50.0,
+      "number_obs": 64107,
+      "observed_criterion_sigma_I": -3.0,
+      "pdbx_Rmerge_I_obs": 0.064,
+      "pdbx_diffrn_id": [
+        "1"
+      ],
+      "pdbx_netI_over_sigmaI": 19.7,
+      "pdbx_ordinal": 1,
+      "pdbx_redundancy": 3.2,
+      "percent_possible_obs": 95.6
+    }
+  ],
+  "reflns_shell": [
+    {
+      "Rmerge_I_obs": 0.344,
+      "d_res_high": 1.85,
+      "d_res_low": 1.92,
+      "meanI_over_sigI_obs": 2.3,
+      "pdbx_ordinal": 1,
+      "percent_possible_all": 90.8
+    }
+  ],
+  "software": [
+    {
+      "classification": "refinement",
+      "contact_author": "Murshudov, G.N.",
+      "contact_author_email": "ccp4@dl.ac.uk",
+      "language": "Fortran_77",
+      "location": "http://www.ccp4.ac.uk/main.html",
+      "name": "REFMAC",
+      "pdbx_ordinal": 1,
+      "type": "program"
+    },
+    {
+      "classification": "data extraction",
+      "contact_author": "PDB",
+      "contact_author_email": "sw-help@rcsb.rutgers.edu",
+      "date": "April. 3, 2006",
+      "language": "C++",
+      "location": "http://pdb.rutgers.edu/software/",
+      "name": "PDB_EXTRACT",
+      "pdbx_ordinal": 2,
+      "type": "package",
+      "version": "2.000"
+    },
+    {
+      "classification": "data collection",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 3
+    },
+    {
+      "classification": "data reduction",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 4
+    },
+    {
+      "classification": "data scaling",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 5
+    },
+    {
+      "classification": "phasing",
+      "name": "PHASER",
+      "pdbx_ordinal": 6
+    }
+  ],
+  "struct": {
+    "title": "Crystal structure of the KPC-2 carbapenemase"
+  },
+  "struct_keywords": {
+    "pdbx_keywords": "HYDROLASE",
+    "text": "carbapenemase, beta-lactamase, Hydrolase"
+  },
+  "symmetry": {
+    "Int_Tables_number": 144,
+    "space_group_name_H_M": "P 31"
+  }
+}

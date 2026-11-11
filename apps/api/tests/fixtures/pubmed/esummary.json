@@ -1,0 +1,486 @@
+{
+  "header": {
+    "type": "esummary",
+    "version": "0.3"
+  },
+  "result": {
+    "31911273": {
+      "articleids": [
+        {
+          "idtype": "pubmed",
+          "idtypen": 1,
+          "value": "31911273"
+        },
+        {
+          "idtype": "pmc",
+          "idtypen": 8,
+          "value": "PMC6948161"
+        },
+        {
+          "idtype": "pmcid",
+          "idtypen": 5,
+          "value": "pmc-id: PMC6948161;"
+        },
+        {
+          "idtype": "doi",
+          "idtypen": 3,
+          "value": "10.1016/j.ebiom.2019.102599"
+        },
+        {
+          "idtype": "pii",
+          "idtypen": 4,
+          "value": "S2352-3964(19)30814-X"
+        }
+      ],
+      "attributes": [
+        "Has Abstract"
+      ],
+      "authors": [
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Gao H"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Liu Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Wang R"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Wang Q"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Jin L"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Wang H"
+        }
+      ],
+      "availablefromurl": "",
+      "bookname": "",
+      "booktitle": "",
+      "chapter": "",
+      "doccontriblist": [],
+      "docdate": "",
+      "doctype": "citation",
+      "edition": "",
+      "elocationid": "doi: 10.1016/j.ebiom.2019.102599",
+      "epubdate": "2020 Jan 3",
+      "essn": "2352-3964",
+      "fulljournalname": "EBioMedicine",
+      "history": [
+        {
+          "date": "2019/08/13 00:00",
+          "pubstatus": "received"
+        },
+        {
+          "date": "2019/11/14 00:00",
+          "pubstatus": "revised"
+        },
+        {
+          "date": "2019/12/09 00:00",
+          "pubstatus": "accepted"
+        },
+        {
+          "date": "2020/01/09 06:00",
+          "pubstatus": "pubmed"
+        },
+        {
+          "date": "2020/10/03 06:00",
+          "pubstatus": "medline"
+        },
+        {
+          "date": "2020/01/09 06:00",
+          "pubstatus": "entrez"
+        },
+        {
+          "date": "2020/01/03 00:00",
+          "pubstatus": "pmc-release"
+        }
+      ],
+      "issn": "",
+      "issue": "",
+      "lang": [
+        "eng"
+      ],
+      "lastauthor": "Wang H",
+      "locationlabel": "",
+      "medium": "",
+      "nlmuniqueid": "101647039",
+      "pages": "102599",
+      "pmcrefcount": 22,
+      "pubdate": "2020 Jan",
+      "publisherlocation": "",
+      "publishername": "",
+      "pubstatus": "256",
+      "pubtype": [
+        "Journal Article"
+      ],
+      "recordstatus": "PubMed - indexed for MEDLINE",
+      "references": [
+        {
+          "note": "",
+          "pmid": 33845237,
+          "refsource": "EBioMedicine. 2021 Apr;66:103295. doi: 10.1016/j.ebiom.2021.103295.",
+          "reftype": "Erratum in"
+        }
+      ],
+      "reportnumber": "",
+      "sortfirstauthor": "Gao H",
+      "sortpubdate": "2020/01/01 00:00",
+      "sorttitle": "transferability and evolution of ndm 1 and kpc 2 co producing klebsiella pneumoniae from clinical settings",
+      "source": "EBioMedicine",
+      "srccontriblist": [],
+      "srcdate": "",
+      "title": "The transferability and evolution of NDM-1 and KPC-2 co-producing Klebsiella pneumoniae from clinical settings.",
+      "uid": "31911273",
+      "vernaculartitle": "",
+      "volume": "51"
+    },
+    "35980232": {
+      "articleids": [
+        {
+          "idtype": "pubmed",
+          "idtypen": 1,
+          "value": "35980232"
+        },
+        {
+          "idtype": "pmc",
+          "idtypen": 8,
+          "value": "PMC9487638"
+        },
+        {
+          "idtype": "pmcid",
+          "idtypen": 5,
+          "value": "pmc-id: PMC9487638;"
+        },
+        {
+          "idtype": "doi",
+          "idtypen": 3,
+          "value": "10.1128/aac.00447-22"
+        }
+      ],
+      "attributes": [
+        "Has Abstract"
+      ],
+      "authors": [
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Hobson CA"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Pierrat G"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Tenaillon O"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Bonacorsi S"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Bercot B"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Jaouen E"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Jacquier H"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Birgy A"
+        }
+      ],
+      "availablefromurl": "",
+      "bookname": "",
+      "booktitle": "",
+      "chapter": "",
+      "doccontriblist": [],
+      "docdate": "",
+      "doctype": "citation",
+      "edition": "",
+      "elocationid": "doi: 10.1128/aac.00447-22",
+      "epubdate": "2022 Aug 18",
+      "essn": "1098-6596",
+      "fulljournalname": "Antimicrobial agents and chemotherapy",
+      "history": [
+        {
+          "date": "2022/08/19 06:00",
+          "pubstatus": "pubmed"
+        },
+        {
+          "date": "2022/09/24 06:00",
+          "pubstatus": "medline"
+        },
+        {
+          "date": "2022/08/18 09:13",
+          "pubstatus": "entrez"
+        },
+        {
+          "date": "2023/02/18 00:00",
+          "pubstatus": "pmc-release"
+        }
+      ],
+      "issn": "0066-4804",
+      "issue": "9",
+      "lang": [
+        "eng"
+      ],
+      "lastauthor": "Birgy A",
+      "locationlabel": "",
+      "medium": "",
+      "nlmuniqueid": "0315061",
+      "pages": "e0044722",
+      "pmcrefcount": 119,
+      "pubdate": "2022 Sep 20",
+      "publisherlocation": "",
+      "publishername": "",
+      "pubstatus": "256",
+      "pubtype": [
+        "Journal Article",
+        "Review",
+        "Research Support, Non-U.S. Gov't"
+      ],
+      "recordstatus": "PubMed - indexed for MEDLINE",
+      "references": [],
+      "reportnumber": "",
+      "sortfirstauthor": "Hobson CA",
+      "sortpubdate": "2022/09/20 00:00",
+      "sorttitle": "klebsiella pneumoniae carbapenemase variants resistant to ceftazidime avibactam an evolutionary overview",
+      "source": "Antimicrob Agents Chemother",
+      "srccontriblist": [],
+      "srcdate": "",
+      "title": "Klebsiella pneumoniae Carbapenemase Variants Resistant to Ceftazidime-Avibactam: an Evolutionary Overview.",
+      "uid": "35980232",
+      "vernaculartitle": "",
+      "volume": "66"
+    },
+    "40024096": {
+      "articleids": [
+        {
+          "idtype": "pubmed",
+          "idtypen": 1,
+          "value": "40024096"
+        },
+        {
+          "idtype": "pmc",
+          "idtypen": 8,
+          "value": "PMC11919442"
+        },
+        {
+          "idtype": "pmcid",
+          "idtypen": 5,
+          "value": "pmc-id: PMC11919442;"
+        },
+        {
+          "idtype": "doi",
+          "idtypen": 3,
+          "value": "10.1016/j.ebiom.2025.105627"
+        },
+        {
+          "idtype": "pii",
+          "idtypen": 4,
+          "value": "S2352-3964(25)00071-4"
+        }
+      ],
+      "attributes": [
+        "Has Abstract"
+      ],
+      "authors": [
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Jiang J"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Wang L"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Hu Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Chen X"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Li P"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Zhang J"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Zhang Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Su J"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Xu X"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Xiao Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Liu Z"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Yu Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Gao H"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Doi Y"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "van Duin D"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Fowler VG Jr"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Chen L"
+        },
+        {
+          "authtype": "Author",
+          "clusterid": "",
+          "name": "Wang M"
+        }
+      ],
+      "availablefromurl": "",
+      "bookname": "",
+      "booktitle": "",
+      "chapter": "",
+      "doccontriblist": [],
+      "docdate": "",
+      "doctype": "citation",
+      "edition": "",
+      "elocationid": "doi: 10.1016/j.ebiom.2025.105627",
+      "epubdate": "2025 Mar 1",
+      "essn": "2352-3964",
+      "fulljournalname": "EBioMedicine",
+      "history": [
+        {
+          "date": "2024/10/27 00:00",
+          "pubstatus": "received"
+        },
+        {
+          "date": "2025/02/14 00:00",
+          "pubstatus": "revised"
+        },
+        {
+          "date": "2025/02/16 00:00",
+          "pubstatus": "accepted"
+        },
+        {
+          "date": "2025/03/15 00:37",
+          "pubstatus": "medline"
+        },
+        {
+          "date": "2025/03/03 00:56",
+          "pubstatus": "pubmed"
+        },
+        {
+          "date": "2025/03/02 18:07",
+          "pubstatus": "entrez"
+        },
+        {
+          "date": "2025/03/01 00:00",
+          "pubstatus": "pmc-release"
+        }
+      ],
+      "issn": "",
+      "issue": "",
+      "lang": [
+        "eng"
+      ],
+      "lastauthor": "Wang M",
+      "locationlabel": "",
+      "medium": "",
+      "nlmuniqueid": "101647039",
+      "pages": "105627",
+      "pmcrefcount": 52,
+      "pubdate": "2025 Mar",
+      "publisherlocation": "",
+      "publishername": "",
+      "pubstatus": "256",
+      "pubtype": [
+        "Journal Article"
+      ],
+      "recordstatus": "PubMed - indexed for MEDLINE",
+      "references": [],
+      "reportnumber": "",
+      "sortfirstauthor": "Jiang J",
+      "sortpubdate": "2025/03/01 00:00",
+      "sorttitle": "global emergence of carbapenem resistant hypervirulent klebsiella pneumoniae driven by an incfii k34 kpc 2 plasmid",
+      "source": "EBioMedicine",
+      "srccontriblist": [],
+      "srcdate": "",
+      "title": "Global emergence of Carbapenem-resistant Hypervirulent Klebsiella pneumoniae driven by an IncFII(K34) KPC-2 plasmid.",
+      "uid": "40024096",
+      "vernaculartitle": "",
+      "volume": "113"
+    },
+    "uids": [
+      "31911273",
+      "35980232",
+      "40024096"
+    ]
+  }
+}

@@ -12,6 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from biostruct import security
 from biostruct.config import Env, Settings
 from biostruct.main import API_PREFIX, create_app
+from tests.stubs import StubSources
 
 MONGO_URI = os.environ.get("TEST_MONGODB_URI", "mongodb://localhost:27017/?directConnection=true")
 
@@ -169,3 +170,20 @@ class Api:
 @pytest.fixture
 def api(client: AsyncClient) -> Api:
     return Api(client)
+
+
+@pytest_asyncio.fixture
+async def stub_sources(client: AsyncClient) -> AsyncIterator[StubSources]:
+    """Replace the app's ScienceSources with a controllable stub.
+
+    ``get_sources`` reads ``app.state.sources`` per request, so swapping it after
+    startup is enough, and it keeps endpoint tests off the network.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    real = app.state.sources
+    stub = StubSources()
+    app.state.sources = stub
+    try:
+        yield stub
+    finally:
+        app.state.sources = real

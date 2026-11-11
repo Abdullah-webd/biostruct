@@ -96,12 +96,19 @@ From the `chain_selection` schema:
   within `crop_residues`.
 - `epitope_residues` and `non_binding_residues` must not overlap.
 
-PDB files number residues by *author* numbering, which is 1-based and frequently
-does not start at 1 (and can contain insertion codes). Passing an author residue
-number straight through would silently mark the wrong epitope — producing designs
-aimed at the wrong part of the protein, with no error anywhere. The adapter
-validates these constraints locally; the author-number → index mapping belongs in
-the target layer (M2).
+PDB files number residues by *author* numbering, which does not start at 1 and
+can skip. Passing an author residue number straight through would silently mark
+the wrong epitope — designs aimed at the wrong part of the protein, with no error
+anywhere.
+
+Measured on 2OV5 chain A (KPC-2): 261 residues modelled of 293, author numbering
+30–292, **non-contiguous** (gaps at 58 and 253). So `index = author - 30` is
+wrong after the first gap, and `index = author` puts Ser70 on Ala101. There is
+also a **third** numbering system: UniProt annotates the catalytic serine at
+position 69 while the literature and the PDB call it 70.
+
+The adapter validates the subset and overlap constraints locally; the conversions
+live in `sources/residues.py` and are covered by 48 tests.
 
 ---
 
