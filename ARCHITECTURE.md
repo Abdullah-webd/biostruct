@@ -2,8 +2,8 @@
 
 > **Status: v1 · APPROVED 2026-11-11 · build in progress**
 >
-> Nothing in `apps/` is built until this document is approved.
-> Approved 2026-11-11. Name: **Biostruct**. Repo: **public**. Deployment: **Railway**.
+> Approved 2026-11-11. Name: **Biostruct** · repo **public** (MIT) · deployment **Railway**.
+> Changes from here on are recorded in the decisions log (§17), not by editing history.
 
 Every technical claim here traces to [`docs/research.md`](docs/research.md). The Boltz API details
 were verified by installing `boltz-api==0.50.0` and reading its generated types, because Boltz
