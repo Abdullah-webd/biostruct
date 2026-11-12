@@ -11,7 +11,13 @@
 # Needs a .env with BOLTZ_API_KEY and OPENAI_API_KEY. See docs/credentials.md.
 
 .DEFAULT_GOAL := help
-.PHONY: help dev up down logs test lint verify-boltz verify-sources verify-e2e reset status
+.PHONY: help dev web web-dev up down logs test lint verify-boltz verify-sources verify-e2e verify-ui reset status
+
+# Port 3000 is a popular default, so pick the first free one rather than
+# failing or trampling whatever is already running there.
+WEB_PORT ?= $(shell for p in 3000 3001 3002 3003 3004; do \
+	if ! lsof -nP -iTCP:$$p -sTCP:LISTEN >/dev/null 2>&1; then echo $$p; break; fi; \
+	done)
 
 help: ## Show this help
 	@echo "Biostruct"
@@ -19,7 +25,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Start here:  make dev   then open http://localhost:8000/docs"
+	@echo "Start here:  make dev   (API)   then   make web   (the interface)"
 
 dev: ## Run the API natively on this Mac (recommended; no Docker networking)
 	@# Colima and similar Docker runtimes keep published ports inside their VM,
@@ -31,6 +37,34 @@ dev: ## Run the API natively on this Mac (recommended; no Docker networking)
 	@echo "Open http://localhost:8000/docs  (Ctrl-C to stop)"
 	@echo ""
 	cd apps/api && .venv/bin/uvicorn biostruct.main:app --reload --host 127.0.0.1 --port 8000
+
+# Runs the production build rather than the dev server. It is the build that
+# gets verified, it starts fast, and it does not depend on the hot-reload
+# websocket, which some sandboxed or proxied environments block — and when that
+# websocket fails, the page renders but never becomes interactive, which looks
+# exactly like a broken app. Use web-dev when editing the frontend.
+web: ## Run the web app (needs `make dev` running in another terminal)
+	@test -d apps/web/node_modules || (cd apps/web && npm install)
+	@if [ -z "$(WEB_PORT)" ]; then echo "No free port between 3000 and 3004."; exit 1; fi
+	@if [ "$(WEB_PORT)" != "3000" ]; then \
+		echo "Port 3000 is in use, so using $(WEB_PORT) instead."; \
+		lsof -nP -iTCP:3000 -sTCP:LISTEN 2>/dev/null | tail -n +2 \
+			| awk '{print "  (3000 is held by " $$1 ", pid " $$2 ")"}'; \
+	fi
+	@cd apps/web && npm run build
+	@echo ""
+	@echo "  Open http://localhost:$(WEB_PORT)"
+	@echo ""
+	cd apps/web && PORT=$(WEB_PORT) npm run start
+
+web-dev: ## Run the web app with hot reload, for editing the frontend
+	@test -d apps/web/node_modules || (cd apps/web && npm install)
+	@echo "  Open http://localhost:$(WEB_PORT)  (hot reload)"
+	cd apps/web && PORT=$(WEB_PORT) npm run dev
+
+verify-ui: ## Prove the motion works and walk the whole UI, capturing screenshots
+	cd apps/web && BASE_URL=http://127.0.0.1:$(WEB_PORT) npm run motion-check \
+		&& BASE_URL=http://127.0.0.1:$(WEB_PORT) npm run walkthrough
 
 up: ## Start MongoDB and the API in Docker (needs working port forwarding)
 	docker compose --profile app up -d --wait --build

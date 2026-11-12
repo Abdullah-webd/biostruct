@@ -78,7 +78,7 @@ export default function TargetStep({
       {error && <Notice tone="danger" title={error} />}
 
       <Panel title="Search UniProt">
-        <form onSubmit={search} className="space-y-4 p-4">
+        <form method="post" action="" onSubmit={search} className="space-y-4 p-4">
           <Field
             label="Query"
             value={query}

@@ -15,7 +15,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning is required here, not cosmetic. The inline
+    // script below adds a class to <html> before React hydrates, so the server
+    // markup and the client tree differ on this element. Without this, React
+    // reports "this won't be patched up" and abandons hydration, which leaves
+    // the whole app non-interactive and makes forms fall back to native
+    // submits.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

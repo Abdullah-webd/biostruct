@@ -61,8 +61,23 @@ interactive page you can click the whole workflow through.
 
 ```bash
 cp .env.example .env     # add BOLTZ_API_KEY and OPENAI_API_KEY
-make dev                 # runs the API on http://localhost:8000
+make dev                 # terminal 1 — the API on :8000
+make web                 # terminal 2 — the interface
 ```
+
+`make web` prints the URL it chose. It uses port 3000 when free and steps to
+the next one when not, so it will not collide with another project you have
+running.
+
+It serves the production build rather than the dev server, because that is the
+build that gets verified and it does not depend on the hot-reload websocket.
+Use `make web-dev` when you are editing the frontend and want hot reload.
+
+Then create an account and work down the left rail: find a target, choose an
+epitope, estimate, confirm, watch the run, read the ranked candidates.
+
+The API also serves an interactive page at http://localhost:8000/docs if you
+would rather drive it directly.
 
 `make dev` runs the API directly on your machine. If your Docker runs in a VM
 (Colima, Rancher Desktop, Podman machine) then `make up` will start a perfectly
@@ -70,7 +85,8 @@ healthy container whose port never reaches your browser, which looks exactly
 like a broken app. Running it natively avoids that. It uses `MONGODB_URI` from
 `.env`, so with an Atlas connection string no local database is needed.
 
-Then open **http://localhost:8000/docs** and follow the order in the banner:
+Driving the API directly rather than through the UI, at
+http://localhost:8000/docs:
 
 1. `POST /auth/register` — any email, password of 12+ characters
 2. `POST /projects` — name it, with `infection.name`

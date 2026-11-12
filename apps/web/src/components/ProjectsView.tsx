@@ -78,7 +78,7 @@ export default function ProjectsView() {
           className="mb-8"
         >
           <Panel title="New project">
-            <form onSubmit={create} className="space-y-5 p-4">
+            <form method="post" action="" onSubmit={create} className="space-y-5 p-4">
               <Field
                 label="Project name"
                 required

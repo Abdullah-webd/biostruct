@@ -1,7 +1,9 @@
 import { chromium } from "playwright";
+
+const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
-await p.goto("http://127.0.0.1:3100/", { waitUntil: "networkidle", timeout: 60000 });
+await p.goto(BASE + "/", { waitUntil: "networkidle", timeout: 60000 });
 await p.waitForTimeout(4500);
 
 // Does the specimen actually rotate? Compare canvas pixels over time.
@@ -23,7 +25,7 @@ console.log(`specimen rotating: ${a !== null && c2 !== null && a !== c2} (${a} -
 // Does the intro actually run, rather than content just being present?
 const p2 = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const positions = [];
-await p2.goto("http://127.0.0.1:3100/", { waitUntil: "domcontentloaded" });
+await p2.goto(BASE + "/", { waitUntil: "domcontentloaded" });
 for (let i = 0; i < 6; i++) {
   positions.push(await p2.evaluate(() => {
     const el = document.querySelector("[data-sub]");
@@ -48,7 +50,7 @@ console.log(`numbering set-piece animates on scroll: ${rowBefore !== rowAfter} (
 const rm = await (await b.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" })).newPage();
 const rmErrors = [];
 rm.on("pageerror", (e) => rmErrors.push(e.message));
-await rm.goto("http://127.0.0.1:3100/", { waitUntil: "networkidle", timeout: 60000 });
+await rm.goto(BASE + "/", { waitUntil: "networkidle", timeout: 60000 });
 await rm.waitForTimeout(2500);
 const visible = await rm.evaluate(() => {
   const el = document.querySelector("[data-sub]");

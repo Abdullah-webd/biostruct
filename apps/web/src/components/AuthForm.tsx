@@ -76,7 +76,17 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         </div>
       )}
 
-      <form onSubmit={submit} className="mt-8 space-y-5" noValidate>
+      {/* method="post" matters even though submission goes through fetch: if
+          JS has not hydrated, the browser falls back to a native submit, and
+          the default GET would put the password in the URL — and therefore in
+          history, logs and the referrer. A POST keeps it in the body. */}
+      <form
+        onSubmit={submit}
+        method="post"
+        action=""
+        className="mt-8 space-y-5"
+        noValidate
+      >
         {isRegister && (
           <Field
             label="Name"

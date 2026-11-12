@@ -5,13 +5,16 @@ import { chromium } from "playwright";
 
 const OUT =
   "/private/tmp/claude-501/-Users-ajalaabdullahabiola-Documents-drug-sandbox-hackathon/90edc025-f9e4-44c3-9c0f-13c0d039e16a/scratchpad/shots";
-const BASE = "http://127.0.0.1:3100";
+// Dev mode compiles each route on first visit, so give navigation room.
+const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const EMAIL = `ui-${Date.now()}@example.org`;
 const PASSWORD = "ribosome velvet cartography";
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 } });
 const page = await ctx.newPage();
+page.setDefaultTimeout(120000);
+page.setDefaultNavigationTimeout(120000);
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => {
