@@ -55,3 +55,7 @@ apps/api/.live_probe_run.json
 # Next.js
 apps/web/.next/
 apps/web/node_modules/
+
+# ship-verify output
+.verify/
+apps/web/.verify/
