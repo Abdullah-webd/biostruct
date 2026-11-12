@@ -51,3 +51,7 @@ apps/api/data/
 
 # Live probe state (a run id, so a re-attach does not start a second billed run)
 apps/api/.live_probe_run.json
+
+# Next.js
+apps/web/.next/
+apps/web/node_modules/

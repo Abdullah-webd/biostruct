@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/* Mol*'s own stylesheet. The package ships compiled CSS, so we use that
+   rather than adding a Sass pipeline for one dependency. */
+@import "molstar/build/viewer/molstar.css";
+
+/* Design tokens. See docs/design.md for the reasoning behind each choice. */
+@theme {
+  /* Ground is near-black with a blue cast, the way every molecular viewer in
+     the field is lit. A light theme would read as a toy. */
+  --color-ground: #0a0e14;
+  --color-panel: #121821;
+  --color-panel-hi: #182130;
+  --color-line: #222c3a;
+  --color-ink: #e6edf3;
+  --color-muted: #7d8b9a;
+  --color-faint: #4c5969;
+
+  /* One sharp accent. Phosphor green-cyan: a readout that has settled. */
+  --color-signal: #00e5a0;
+  --color-signal-dim: #0b6b52;
+
+  /* Chain colours differ in lightness as well as hue, so binder and target
+     stay distinguishable with deuteranopia. */
+  --color-binder: #00e5a0;
+  --color-target: #5b8def;
+  --color-epitope: #ff4d8d;
+  --color-caution: #ffb454;
+  --color-danger: #ff6b6b;
+
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+}
+
+:root {
+  /* UI feedback: fast and precise. */
+  --dur-press: 120ms;
+  --dur-ui: 200ms;
+  --dur-panel: 300ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Cinematic: reveals and the landing set-pieces. */
+  --dur-reveal: 0.9s;
+  --dur-hero: 1.2s;
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  background: var(--color-ground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* A faint grid, like graph paper under the specimen. Static, not decorative
+     motion. */
+  background-image:
+    linear-gradient(to right, rgba(34, 44, 58, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 44, 58, 0.25) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-attachment: fixed;
+}
+
+/* Every number in this product is a measurement, so figures must align. */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Display type set wide, using Archivo's width axis rather than a second
+   family. */
+.display {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+/* --- reveal gate -------------------------------------------------------
+   Content is in the DOM and visible without JS. The gate only *delays* a
+   choreographed entrance when JS is present, so there is no FOUC and no
+   blank page if a script fails. */
+[data-reveal] {
+  opacity: 1;
+}
+html.js-ready [data-reveal="pending"] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js-ready [data-reveal="pending"] {
+    opacity: 1;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus is always visible and always the accent. */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--color-signal);
+  color: var(--color-ground);
+}
+
+/* Instrument scrollbars: present, thin, not hidden. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ground);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border: 2px solid var(--color-ground);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+/* Hairline rule used to separate readouts. */
+.hairline {
+  background: linear-gradient(
+    to right,
+    var(--color-line),
+    color-mix(in oklab, var(--color-line) 40%, transparent)
+  );
+  height: 1px;
+}
+
+/* Mol* brings its own stylesheet and expects its host to give it bounds.
+   Without these it mounts, reports a canvas of width x 0, and spins in a
+   render loop against a zero-height drawing buffer. */
+.msp-plugin,
+.msp-plugin-content.msp-layout-standard {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+.msp-plugin {
+  --msp-font: var(--font-sans) !important;
+}
+/* Its chrome is hidden in favour of our own instrument controls, which are
+   labelled and sit in our own visual language. */
+.msp-plugin-content {
+  border: none !important;
+}
+.msp-viewport-controls {
+  display: none !important;
+}
