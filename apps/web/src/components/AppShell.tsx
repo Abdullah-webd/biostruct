@@ -52,23 +52,26 @@ export default function AppShell({ children }: { children: ReactNode }) {
   if (state === "checking") {
     return (
       <div className="grid min-h-screen place-items-center">
-        <Spinner label="checking session" />
+        <Spinner label="Signing you in…" />
       </div>
     );
   }
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-ground/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-line bg-ground/85 backdrop-blur-md">
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
-          <Link href="/projects" className="flex items-baseline gap-2">
-            <span className="display text-base">BIOSTRUCT</span>
+          <Link
+            href="/projects"
+            className="display text-[17px] text-ink transition-opacity duration-[var(--dur-ui)] hover:opacity-70"
+          >
+            Biostruct
           </Link>
           <div className="flex items-center gap-3">
             {user && (
-              <span className="hidden text-xs text-muted sm:inline">{user.email}</span>
+              <span className="hidden text-[13px] text-muted sm:inline">{user.email}</span>
             )}
-            <Button variant="ghost" onClick={signOut} className="px-2 py-1 text-xs">
+            <Button variant="ghost" onClick={signOut} className="px-2.5 py-1 text-[13px]">
               Sign out
             </Button>
           </div>

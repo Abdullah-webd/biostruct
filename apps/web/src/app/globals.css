@@ -4,36 +4,48 @@
    rather than adding a Sass pipeline for one dependency. */
 @import "molstar/build/viewer/molstar.css";
 
-/* Design tokens. See docs/design.md for the reasoning behind each choice. */
+/* Design tokens. See docs/design.md for the reasoning behind each choice.
+   v2 is light: white paper, ink text, one blue accent. The previous dark +
+   acid-green scheme is one of the documented generated-design tells, and a
+   light surface is also what this product actually is — a document you put
+   findings in. The one dark surface is the 3D viewport (.specimen below),
+   because a specimen is lit against a dark field in every piece of structural
+   software there is. */
 @theme {
-  /* Ground is near-black with a blue cast, the way every molecular viewer in
-     the field is lit. A light theme would read as a toy. */
-  --color-ground: #0a0e14;
-  --color-panel: #121821;
-  --color-panel-hi: #182130;
-  --color-line: #222c3a;
-  --color-ink: #e6edf3;
-  --color-muted: #7d8b9a;
-  --color-faint: #4c5969;
+  --color-ground: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-hi: #f4f5f3;
+  --color-wash: #f7f7f5;
+  --color-line: #e4e4e0;
+  --color-ink: #16181d;
+  --color-muted: #5b6270;
+  --color-faint: #8a909c;
 
-  /* One sharp accent. Phosphor green-cyan: a readout that has settled. */
-  --color-signal: #00e5a0;
-  --color-signal-dim: #0b6b52;
+  /* One accent, carrying links, primary actions and focus. */
+  --color-signal: #1f5fae;
+  --color-signal-dim: #e7effa;
 
-  /* Chain colours differ in lightness as well as hue, so binder and target
-     stay distinguishable with deuteranopia. */
-  --color-binder: #00e5a0;
-  --color-target: #5b8def;
-  --color-epitope: #ff4d8d;
-  --color-caution: #ffb454;
-  --color-danger: #ff6b6b;
+  /* Outcome colours, chosen to stay legible as text on white. */
+  --color-caution: #8a5a00;
+  --color-danger: #b4251f;
+  --color-good: #1f7a54;
 
-  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Chain colours for the 3D viewport and its legend. These stay bright:
+     they sit on the dark specimen field, not on the page. They differ in
+     lightness as well as hue, so binder and target remain distinguishable
+     with deuteranopia. */
+  --color-binder: #2ee6a6;
+  --color-target: #7aa7f5;
+  --color-epitope: #ff6fa3;
+  --color-specimen: #0e1117;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "IBM Plex Serif", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 :root {
@@ -44,12 +56,12 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
-  /* Cinematic: reveals and the landing set-pieces. */
+  /* Cinematic: reveals and the landing set-piece. */
   --dur-reveal: 0.9s;
   --dur-hero: 1.2s;
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {
@@ -66,30 +78,38 @@ body {
   background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  /* A faint grid, like graph paper under the specimen. Static, not decorative
-     motion. */
-  background-image:
-    linear-gradient(to right, rgba(34, 44, 58, 0.25) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(34, 44, 58, 0.25) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-attachment: fixed;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
-/* Every number in this product is a measurement, so figures must align. */
+/* Every number in this product is a measurement, so figures must align.
+   Mono is for things that are counted or compared — sequences, residue
+   numbers, metric columns — never for labels. Labels in mono were a v1 tell. */
 .tnum {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-/* Display type set wide, using Archivo's width axis rather than a second
-   family. */
+/* Headlines. A serif on white reads as considered and medical rather than
+   start-up, and it is the one place the page raises its voice. */
 .display {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-stretch: 112%;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+/* --- the specimen field -------------------------------------------------
+   The single dark surface. Text tokens are redefined inside it so shared
+   components keep working without a second set of classes. */
+.specimen {
+  background: var(--color-specimen);
+  --color-ink: #e9eef5;
+  --color-muted: #9aa6b6;
+  --color-faint: #6b7787;
+  --color-line: #232a35;
+  color: var(--color-ink);
 }
 
 /* --- reveal gate -------------------------------------------------------
@@ -125,35 +145,8 @@ html.js-ready [data-reveal="pending"] {
 }
 
 ::selection {
-  background: var(--color-signal);
-  color: var(--color-ground);
-}
-
-/* Instrument scrollbars: present, thin, not hidden. */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: var(--color-ground);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-line);
-  border: 2px solid var(--color-ground);
-  border-radius: 6px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-faint);
-}
-
-/* Hairline rule used to separate readouts. */
-.hairline {
-  background: linear-gradient(
-    to right,
-    var(--color-line),
-    color-mix(in oklab, var(--color-line) 40%, transparent)
-  );
-  height: 1px;
+  background: var(--color-signal-dim);
+  color: var(--color-ink);
 }
 
 /* Mol* brings its own stylesheet and expects its host to give it bounds.
@@ -169,11 +162,17 @@ html.js-ready [data-reveal="pending"] {
 .msp-plugin {
   --msp-font: var(--font-sans) !important;
 }
-/* Its chrome is hidden in favour of our own instrument controls, which are
-   labelled and sit in our own visual language. */
+/* Its chrome is hidden in favour of our own controls, which are labelled and
+   sit in our own visual language. */
 .msp-plugin-content {
   border: none !important;
 }
-.msp-viewport-controls {
+.msp-viewport-controls,
+.msp-viewport-top-left-controls,
+.msp-animation-viewport-controls,
+.msp-background-tasks,
+.msp-logo,
+.msp-left-panel-controls,
+.msp-highlight-toast-wrapper {
   display: none !important;
 }

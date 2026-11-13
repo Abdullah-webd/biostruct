@@ -49,10 +49,10 @@ function subscribeToReducedMotion(onChange: () => void): () => void {
 }
 
 const COLOURS = {
-  binder: 0x00e5a0,
-  target: 0x5b8def,
-  epitope: 0xff4d8d,
-  background: 0x0a0e14,
+  binder: 0x2ee6a6,
+  target: 0x7aa7f5,
+  epitope: 0xff6fa3,
+  background: 0x0e1117,
 };
 
 
@@ -109,7 +109,7 @@ async function highlightEpitope(
       await setStructureOverpaint(
         plugin as never,
         structure.components as never,
-        Color(0xff4d8d),
+        Color(0xff6fa3),
         async (s) => {
           const [{ StructureSelection }, { Script }] = await Promise.all([
             import("molstar/lib/mol-model/structure"),
@@ -324,7 +324,7 @@ export function StructureViewer({
     // Fills its parent. The parent must have a size (an aspect box, a grid
     // row, a fixed height); passing positioning in via className would fight
     // the `relative` here and collapse the box.
-    <div className={`relative size-full overflow-hidden bg-ground ${className}`}>
+    <div className={`specimen relative size-full overflow-hidden ${className}`}>
       <div ref={hostRef} className="absolute inset-0" aria-hidden="true" />
 
       {/* A real description for anyone not seeing the canvas. The viewer is not
@@ -335,29 +335,29 @@ export function StructureViewer({
           ` Designed binder on chain ${binderChains.join(", ")}.`}
         {targetChains.length > 0 && ` Target protein on chain ${targetChains.join(", ")}.`}
         {epitopeIndices.length > 0 &&
-          ` ${epitopeIndices.length} epitope residues are highlighted.`}
+          ` ${epitopeIndices.length} targeted positions are highlighted.`}
         {" "}Metric values are listed in the adjacent table.
       </p>
 
       {status === "loading" && (
         <div className="absolute inset-0 grid place-items-center">
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <span className="block size-2 animate-pulse rounded-full bg-signal" />
-            <span className="tnum uppercase tracking-widest">loading structure</span>
+          <div className="flex items-center gap-2.5 text-[13px] text-muted">
+            <span className="block size-2 animate-pulse rounded-full bg-binder" />
+            <span>Loading the 3D model…</span>
           </div>
         </div>
       )}
 
       {status === "error" && (
         <div className="absolute inset-0 grid place-items-center p-6">
-          <div className="max-w-sm border border-line bg-panel p-4">
-            <p className="text-sm font-medium text-caution">
-              The structure could not be displayed
+          <div className="max-w-sm rounded-lg border border-line bg-white/5 p-4">
+            <p className="text-sm font-medium text-ink">
+              The 3D model would not load
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-muted">{error}</p>
-            <p className="mt-2 text-xs leading-relaxed text-faint">
-              The sequence and metrics for this candidate are still shown
-              alongside; only the 3D view is unavailable.
+            <p className="mt-2 text-[13px] leading-relaxed text-muted">{error}</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-faint">
+              Only the picture is missing. The numbers and the designed sequence
+              beside it are unaffected.
             </p>
           </div>
         </div>
@@ -368,48 +368,45 @@ export function StructureViewer({
       {status === "ready" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-3">
           {hasLegend && (
-            <ul className="pointer-events-auto flex flex-wrap items-center gap-x-4 gap-y-1 border border-line bg-panel/90 px-3 py-2 text-[11px] backdrop-blur-sm">
+            <ul className="pointer-events-auto flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-white/10 px-3 py-2 text-[13px] backdrop-blur-sm">
               {binderChains.length > 0 && (
                 <li className="flex items-center gap-2">
                   <span className="block size-2 rounded-sm bg-binder" />
-                  <span className="text-muted">designed binder</span>
-                  <span className="tnum text-ink">{binderChains.join(" ")}</span>
+                  <span className="text-ink">the protein we designed</span>
                 </li>
               )}
               {targetChains.length > 0 && (
                 <li className="flex items-center gap-2">
                   <span className="block size-2 rounded-sm bg-target" />
-                  <span className="text-muted">target</span>
-                  <span className="tnum text-ink">{targetChains.join(" ")}</span>
+                  <span className="text-ink">the enzyme it attacks</span>
                 </li>
               )}
               {epitopeIndices.length > 0 && (
                 <li className="flex items-center gap-2">
                   <span className="block size-2 rounded-sm bg-epitope" />
-                  <span className="text-muted">epitope</span>
-                  <span className="tnum text-ink">{epitopeIndices.length} res</span>
+                  <span className="text-ink">the spot being attacked</span>
                 </li>
               )}
             </ul>
           )}
 
-          <div className="pointer-events-auto flex items-center gap-1 border border-line bg-panel/90 p-1 backdrop-blur-sm">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-md bg-white/10 p-1 backdrop-blur-sm">
             {(["cartoon", "surface", "ball-and-stick"] as Representation[]).map((rep) => (
               <button
                 key={rep}
                 type="button"
                 onClick={() => void applyRepresentation(rep)}
                 aria-pressed={representation === rep}
-                className={`px-2 py-1 text-[11px] uppercase tracking-wider transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
+                className={`rounded px-2.5 py-1 text-[13px] transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
                   representation === rep
-                    ? "bg-signal text-ground"
+                    ? "bg-white/90 text-[#0e1117]"
                     : "text-muted hover:text-ink"
                 }`}
               >
-                {rep === "ball-and-stick" ? "atoms" : rep}
+                {rep === "ball-and-stick" ? "Atoms" : rep === "cartoon" ? "Ribbon" : "Surface"}
               </button>
             ))}
-            <span className="mx-1 h-4 w-px bg-line" />
+            <span className="mx-1 h-4 w-px bg-white/20" />
             <button
               type="button"
               onClick={() => setSpinRequested((s) => !s)}
@@ -419,18 +416,18 @@ export function StructureViewer({
                   ? "Rotation is off because your system prefers reduced motion"
                   : "Toggle rotation"
               }
-              className={`px-2 py-1 text-[11px] uppercase tracking-wider transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
-                spinning ? "bg-signal text-ground" : "text-muted hover:text-ink"
+              className={`rounded px-2.5 py-1 text-[13px] transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
+                spinning ? "bg-white/90 text-[#0e1117]" : "text-muted hover:text-ink"
               }`}
             >
-              spin
+              Turn
             </button>
             <button
               type="button"
               onClick={reset}
-              className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted transition-colors duration-[var(--dur-ui)] hover:text-ink active:scale-[0.97]"
+              className="rounded px-2.5 py-1 text-[13px] text-muted transition-colors duration-[var(--dur-ui)] hover:text-ink active:scale-[0.97]"
             >
-              reset
+              Recentre
             </button>
           </div>
         </div>

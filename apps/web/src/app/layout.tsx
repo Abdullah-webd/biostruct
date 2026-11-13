@@ -4,13 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Biostruct — therapeutic protein design",
   description:
-    "Design candidate protein binders against drug-resistant bacterial targets. " +
-    "Computational prioritisation, not evidence of therapeutic effect.",
+    "Design candidate proteins that stick to the enzymes making an infection " +
+    "drug-resistant. A starting point for lab work, not evidence that anything cures.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0e14",
-  colorScheme: "dark",
+  themeColor: "#ffffff",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Expanded:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
         {/* Marks JS as present so the reveal gate can hide pending elements.
@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-signal focus:bg-panel focus:px-3 focus:py-2 focus:text-sm"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-signal focus:bg-ground focus:px-3 focus:py-2 focus:text-sm"
         >
           Skip to content
         </a>

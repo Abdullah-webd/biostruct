@@ -1,10 +1,12 @@
 "use client";
 
 /**
- * Configuring and submitting a design run. The only place in the product that
- * spends money, so the flow is deliberately two-stage: estimate, then confirm
- * the exact figure. The API refuses a submission whose confirmed price does not
- * match a fresh estimate, so this is not merely a UI nicety.
+ * Step 3 — design the proteins.
+ *
+ * The only place in the product that spends money, so the flow is deliberately
+ * two-stage: estimate, then confirm the exact figure. The API refuses a
+ * submission whose confirmed price does not match a fresh estimate, so this is
+ * not merely a UI nicety.
  */
 
 import { useState } from "react";
@@ -17,10 +19,35 @@ import {
   type Estimate,
   type Target,
 } from "@/lib/api";
-import { Button, Field, Notice, Panel, Readout } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Notice,
+  Panel,
+  Readout,
+  StepHeader,
+  Term,
+} from "@/components/ui";
+import { STEP_INTRO } from "@/lib/words";
 
 const PRESETS = [10, 50, 100, 250, 500];
 const UI_MAX = 2000;
+
+/** The two shapes the model can design, said in terms of what they are. */
+const MODALITIES = [
+  {
+    id: "nanobody" as const,
+    label: "Nanobody",
+    because:
+      "A single small domain, originally from camels. Cheap to make, stable, and it reaches into pockets a full antibody cannot.",
+  },
+  {
+    id: "antibody" as const,
+    label: "Antibody",
+    because:
+      "The full two-chain shape your immune system makes. Larger, and the format most existing drugs use.",
+  },
+];
 
 export default function DesignStep({
   projectId,
@@ -60,7 +87,7 @@ export default function DesignStep({
         setError(e.message);
         setDetail(e.detail ?? "");
       } else {
-        setError("Could not get an estimate");
+        setError("Could not work out what this would cost");
       }
     } finally {
       setBusy(false);
@@ -87,7 +114,7 @@ export default function DesignStep({
         // before it can be confirmed again.
         if (e.code === "cost_estimate_stale") setEstimate(null);
       } else {
-        setError("Could not submit the run");
+        setError("Could not start the run");
       }
       setBusy(false);
     }
@@ -95,25 +122,22 @@ export default function DesignStep({
 
   if (!epitope) {
     return (
-      <div className="p-4 sm:p-6">
-        <Notice tone="caution" title="This target has no epitope yet">
-          Go back to step 03 and choose which residues to design against.
-        </Notice>
-      </div>
+      <Notice tone="caution" title="You have not chosen where to attack yet">
+        Go back to step 2 and pick the spot on the protein to design against.
+      </Notice>
     );
   }
 
+  const chipClass = (on: boolean) =>
+    `rounded-md border px-3.5 py-2 text-sm transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
+      on
+        ? "border-signal bg-signal text-white"
+        : "border-line text-muted hover:border-faint hover:text-ink"
+    }`;
+
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <header>
-        <p className="text-[10px] uppercase tracking-widest text-signal">step 04</p>
-        <h2 className="display mt-1 text-2xl">Generate candidates</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          BoltzProt-1 designs binders against the epitope you selected. You see
-          the price before anything is spent, and the run is submitted at that
-          exact figure.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <StepHeader title="Design the proteins">{STEP_INTRO.design}</StepHeader>
 
       {error && (
         <Notice tone="danger" title={error}>
@@ -122,13 +146,18 @@ export default function DesignStep({
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title="Run configuration">
-          <div className="space-y-5 p-4">
+        <Panel title="What to make">
+          <div className="space-y-6 p-4">
             <div>
-              <span className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted">
-                Designs to generate
-              </span>
-              <div className="flex flex-wrap gap-1">
+              <p className="mb-1 text-sm font-medium text-ink">
+                How many designs to try
+              </p>
+              <p className="mb-2.5 text-[13px] leading-relaxed text-muted">
+                Each one is an independent attempt. Most will be no good, which is
+                why the number matters: more attempts, better odds that one is
+                worth taking to a lab.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
                 {PRESETS.map((n) => (
                   <button
                     key={n}
@@ -138,19 +167,15 @@ export default function DesignStep({
                       setEstimate(null);
                     }}
                     aria-pressed={count === n}
-                    className={`tnum border px-3 py-1.5 text-sm transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
-                      count === n
-                        ? "border-signal bg-signal text-ground"
-                        : "border-line text-muted hover:border-faint hover:text-ink"
-                    }`}
+                    className={`tnum ${chipClass(count === n)}`}
                   >
                     {n}
                   </button>
                 ))}
               </div>
               <Field
-                label=""
-                className="mt-2"
+                label="Or a specific number"
+                className="mt-3"
                 type="number"
                 min={10}
                 max={UI_MAX}
@@ -159,63 +184,75 @@ export default function DesignStep({
                   setCount(Number(e.target.value));
                   setEstimate(null);
                 }}
-                hint={`Between 10 and ${UI_MAX}. The engine itself allows a million, which at this price would be a $50,000 request, so we cap it here.`}
+                hint={`Between 10 and ${UI_MAX}. The engine itself would accept a million, which at this price is a $50,000 request, so we cap it here.`}
               />
             </div>
 
             <div>
-              <span className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted">
-                Modality
-              </span>
-              <div className="flex gap-1">
-                {(["nanobody", "antibody"] as const).map((m) => (
+              <p className="mb-2.5 text-sm font-medium text-ink">
+                What shape should each <Term k="binder" /> be?
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {MODALITIES.map((m) => (
                   <button
-                    key={m}
+                    key={m.id}
                     type="button"
                     onClick={() => {
-                      setModality(m);
+                      setModality(m.id);
                       setEstimate(null);
                     }}
-                    aria-pressed={modality === m}
-                    className={`border px-3 py-1.5 text-sm capitalize transition-colors duration-[var(--dur-ui)] active:scale-[0.97] ${
-                      modality === m
-                        ? "border-signal bg-signal text-ground"
-                        : "border-line text-muted hover:border-faint hover:text-ink"
+                    aria-pressed={modality === m.id}
+                    className={`rounded-lg border px-3.5 py-3 text-left transition-colors duration-[var(--dur-ui)] ${
+                      modality === m.id
+                        ? "border-signal bg-signal-dim"
+                        : "border-line hover:border-faint"
                     }`}
                   >
-                    {m}
+                    <span
+                      className={`block text-sm font-medium ${
+                        modality === m.id ? "text-signal" : "text-ink"
+                      }`}
+                    >
+                      {m.label}
+                    </span>
+                    <span className="mt-1 block text-[13px] leading-relaxed text-muted">
+                      {m.because}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="divide-y divide-line border-t border-line pt-1">
-              <Readout label="Target" value={target.accession} />
-              <Readout label="Structure" value={`${epitope.pdb_id} · ${epitope.chain_id}`} />
+              <Readout label="Protein being attacked" value={target.protein_name} />
               <Readout
-                label="Epitope residues"
+                label="3D shape used"
+                value={`${epitope.pdb_id.toUpperCase()}, chain ${epitope.chain_id}`}
+              />
+              <Readout
+                label="Positions targeted"
                 value={epitope.author_residues.join(", ") || "—"}
               />
               <Readout
-                label="Residues selected"
+                label="Building blocks there"
                 value={epitope.residue_letters || "—"}
-                tone="text-epitope"
               />
               <Readout
-                label="Mapping verified"
-                value={epitope.verified ? "yes" : "not verified"}
-                tone={epitope.verified ? "text-signal" : "text-caution"}
+                label="Positions double-checked"
+                value={epitope.verified ? "yes" : "not checked"}
+                tone={epitope.verified ? "text-good" : "text-caution"}
               />
             </div>
           </div>
         </Panel>
 
-        <Panel title="Cost">
+        <Panel title="What it costs">
           <div className="p-4">
             {!estimate ? (
               <>
                 <p className="text-sm leading-relaxed text-muted">
-                  Getting an estimate is free and does not start anything.
+                  Checking the price is free and starts nothing. You will see the
+                  exact figure before anything is spent.
                 </p>
                 <Button
                   variant="primary"
@@ -223,30 +260,28 @@ export default function DesignStep({
                   disabled={busy || count < 10}
                   className="mt-4"
                 >
-                  {busy ? "Estimating…" : "Get an estimate"}
+                  {busy ? "Checking…" : "Check the price"}
                 </Button>
               </>
             ) : (
               <>
-                <div className="border border-line bg-ground p-4">
-                  <p className="text-[10px] uppercase tracking-widest text-faint">
-                    this run will cost
-                  </p>
-                  <p className="tnum mt-1 text-3xl text-ink">
+                <div className="rounded-lg border border-line bg-wash p-4">
+                  <p className="text-[13px] text-muted">This run will cost</p>
+                  <p className="tnum mt-1 text-[32px] leading-none text-ink">
                     {formatMoney(estimate.total_usd)}
                   </p>
-                  <p className="tnum mt-1 text-xs text-muted">
-                    {estimate.units} designs × {formatMoney(estimate.unit_usd)}
+                  <p className="tnum mt-2 text-[13px] text-muted">
+                    {estimate.units} designs × {formatMoney(estimate.unit_usd)} each
                   </p>
                 </div>
 
                 <div className="mt-4 divide-y divide-line">
                   <Readout
-                    label="Budget remaining"
+                    label="You have"
                     value={formatMoney(estimate.budget_remaining_usd)}
                   />
                   <Readout
-                    label="After this run"
+                    label="Left afterwards"
                     value={formatMoney(
                       String(
                         Number(estimate.budget_remaining_usd) - Number(estimate.total_usd),
@@ -258,24 +293,24 @@ export default function DesignStep({
 
                 {!estimate.livemode && (
                   <div className="mt-4">
-                    <Notice tone="caution" title="This is a test-mode key">
-                      The run is free and returns synthetic results: made-up
-                      metrics and a placeholder structure. Useful for checking
-                      the workflow, not for science. Results will be labelled.
+                    <Notice tone="caution" title="This is a practice run, and it is free">
+                      It returns made-up numbers and a stand-in 3D shape, so you can
+                      see how the whole thing works without spending anything. The
+                      results will say so on every screen. Not science.
                     </Notice>
                   </div>
                 )}
 
                 {!estimate.within_budget && (
                   <div className="mt-4">
-                    <Notice tone="danger" title="Over the project budget">
-                      Reduce the number of designs or raise the budget.
+                    <Notice tone="danger" title="That costs more than this project has left">
+                      Try fewer designs, or raise the project&rsquo;s budget.
                     </Notice>
                   </div>
                 )}
 
                 {estimate.disclaimer && (
-                  <p className="mt-3 text-[11px] leading-relaxed text-faint">
+                  <p className="mt-3 text-[12px] leading-relaxed text-faint">
                     {estimate.disclaimer}
                   </p>
                 )}
@@ -287,17 +322,17 @@ export default function DesignStep({
                     disabled={busy || !estimate.within_budget}
                   >
                     {busy
-                      ? "Submitting…"
-                      : `Confirm ${formatMoney(estimate.total_usd)} and run`}
+                      ? "Starting…"
+                      : `Spend ${formatMoney(estimate.total_usd)} and start`}
                   </Button>
                   <Button variant="ghost" onClick={() => setEstimate(null)} disabled={busy}>
-                    Change
+                    Change something
                   </Button>
                 </div>
               </>
             )}
-            <p className="mt-4 text-[11px] leading-relaxed text-faint">
-              Remaining in this project: {formatMoney(String(remainingUsd))}
+            <p className="mt-4 text-[12px] leading-relaxed text-faint">
+              This project has {formatMoney(String(remainingUsd))} left to spend.
             </p>
           </div>
         </Panel>

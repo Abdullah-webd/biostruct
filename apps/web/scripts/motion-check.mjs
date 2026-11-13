@@ -4,7 +4,10 @@ const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 await p.goto(BASE + "/", { waitUntil: "networkidle", timeout: 60000 });
-await p.waitForTimeout(4500);
+// The specimen fetches a real structure from RCSB after mount, so give the
+// network leg room before judging whether it rotates.
+await p.waitForSelector("[data-specimen] canvas", { timeout: 60000 });
+await p.waitForTimeout(3000);
 
 // Does the specimen actually rotate? Compare canvas pixels over time.
 async function canvasHash() {
@@ -26,6 +29,7 @@ console.log(`specimen rotating: ${a !== null && c2 !== null && a !== c2} (${a} -
 const p2 = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const positions = [];
 await p2.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p2.waitForSelector("[data-sub]", { timeout: 30000 });
 for (let i = 0; i < 6; i++) {
   positions.push(await p2.evaluate(() => {
     const el = document.querySelector("[data-sub]");

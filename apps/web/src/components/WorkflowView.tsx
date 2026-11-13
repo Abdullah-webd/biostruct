@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * The workflow. A left rail of the seven steps, like the function selector on a
- * bench instrument: it shows where you are in a process, not where you may
- * navigate. Budget sits at its foot because spending is a first-class concern.
+ * The workflow.
+ *
+ * v1 used a left rail of seven items, four of which were real steps and three
+ * decoration, labelled with the system's words (Target, Epitope, Design). v2
+ * shows the four real steps as one horizontal line across the top: it is a
+ * sequence, so numbering is honest here, and a line reads as progress in a way
+ * a vertical list of nouns does not. Budget sits in the same bar, because
+ * spending is a first-class concern but not a step.
  */
 
 import { AnimatePresence, motion } from "motion/react";
@@ -20,19 +25,13 @@ import {
 } from "@/lib/api";
 import { Notice, Spinner } from "@/components/ui";
 import { DUR, EASE_OUT } from "@/lib/motion";
+import { STEPS } from "@/lib/words";
 import TargetStep from "@/components/steps/TargetStep";
 import EpitopeStep from "@/components/steps/EpitopeStep";
 import DesignStep from "@/components/steps/DesignStep";
 import ResultsStep from "@/components/steps/ResultsStep";
 
-export type StepId = "target" | "epitope" | "design" | "results";
-
-const STEPS: { id: StepId; n: string; label: string }[] = [
-  { id: "target", n: "02", label: "Target" },
-  { id: "epitope", n: "03", label: "Epitope" },
-  { id: "design", n: "04", label: "Design" },
-  { id: "results", n: "05", label: "Results" },
-];
+export type StepId = (typeof STEPS)[number]["key"];
 
 export default function WorkflowView({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -93,165 +92,186 @@ export default function WorkflowView({ projectId }: { projectId: string }) {
     results: runs.some((r) => r.status === "complete" || r.status === "harvest_partial"),
   };
 
+  const reachable: Record<StepId, boolean> = {
+    target: true,
+    epitope: done.target,
+    design: done.epitope,
+    results: done.design,
+  };
+
   const remaining = project
     ? Number(project.budget.limit_usd) -
       Number(project.budget.spent_usd) -
       Number(project.budget.reserved_usd)
     : 0;
   const budgetLow =
-    project !== null && Number(project.budget.limit_usd) > 0 && remaining / Number(project.budget.limit_usd) < 0.2;
+    project !== null &&
+    Number(project.budget.limit_usd) > 0 &&
+    remaining / Number(project.budget.limit_usd) < 0.2;
 
   if (loading) {
     return (
       <div className="grid min-h-[60vh] place-items-center">
-        <Spinner label="loading project" />
+        <Spinner label="Opening this project…" />
       </div>
     );
   }
 
+  const stepIndex = STEPS.findIndex((s) => s.key === step);
+
   return (
-    <div className="flex min-h-[calc(100vh-49px)] flex-col lg:flex-row">
-      {/* --- rail ------------------------------------------------------- */}
-      <aside className="shrink-0 border-b border-line bg-panel lg:w-[232px] lg:border-b-0 lg:border-r">
-        <div className="border-b border-line px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-faint">project</p>
-          <h1 className="mt-1 text-sm leading-snug text-ink">{project?.name}</h1>
-          <p className="mt-1 text-xs leading-snug text-muted">
-            {project?.infection.name}
-          </p>
+    <div className="mx-auto max-w-[1280px] px-4 pb-16 sm:px-6">
+      {/* --- project heading -------------------------------------------- */}
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-b border-line py-5">
+        <div className="min-w-0">
+          <h1 className="display truncate text-xl">{project?.name}</h1>
+          <p className="mt-1 text-sm text-muted">{project?.infection.name}</p>
         </div>
-
-        <nav aria-label="Workflow steps">
-          <ol className="flex overflow-x-auto lg:block">
-            {STEPS.map((s) => {
-              const current = step === s.id;
-              const complete = done[s.id];
-              const reachable =
-                s.id === "target" ||
-                (s.id === "epitope" && done.target) ||
-                (s.id === "design" && done.epitope) ||
-                (s.id === "results" && done.design);
-              return (
-                <li key={s.id} className="shrink-0 lg:border-b lg:border-line">
-                  <button
-                    type="button"
-                    disabled={!reachable}
-                    onClick={() => setStep(s.id)}
-                    aria-current={current ? "step" : undefined}
-                    className={`relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-[var(--dur-ui)] disabled:cursor-not-allowed disabled:opacity-35 ${
-                      current ? "bg-panel-hi text-ink" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    {current && (
-                      <motion.span
-                        layoutId="step-marker"
-                        className="absolute inset-y-0 left-0 w-[2px] bg-signal"
-                        transition={{ duration: DUR.ui, ease: EASE_OUT }}
-                      />
-                    )}
-                    <span className="tnum text-[11px] text-faint">{s.n}</span>
-                    <span className="flex-1 text-sm">{s.label}</span>
-                    {complete && (
-                      <span
-                        className="block size-1.5 rounded-full bg-signal"
-                        aria-label="complete"
-                      />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-
         {project && (
-          <div className="border-t border-line px-4 py-3 lg:mt-auto">
-            <p className="text-[10px] uppercase tracking-widest text-faint">budget</p>
-            <p className={`tnum mt-1 text-lg ${budgetLow ? "text-caution" : "text-ink"}`}>
+          <div className="text-right">
+            <p className={`tnum text-lg ${budgetLow ? "text-caution" : "text-ink"}`}>
               {formatMoney(String(remaining))}
             </p>
-            <p className="text-[11px] text-muted">
-              of {formatMoney(project.budget.limit_usd)} remaining
+            <p className="text-[13px] text-muted">
+              left to spend of {formatMoney(project.budget.limit_usd)}
+              {Number(project.budget.reserved_usd) > 0 && (
+                <span className="text-caution">
+                  {" "}
+                  · {formatMoney(project.budget.reserved_usd)} held by a running job
+                </span>
+              )}
             </p>
-            {Number(project.budget.reserved_usd) > 0 && (
-              <p className="tnum mt-1 text-[11px] text-caution">
-                {formatMoney(project.budget.reserved_usd)} held by a running job
-              </p>
-            )}
           </div>
         )}
-      </aside>
-
-      {/* --- canvas ----------------------------------------------------- */}
-      <div className="min-w-0 flex-1">
-        {error && (
-          <div className="p-4">
-            <Notice tone="danger" title={error} />
-          </div>
-        )}
-
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: DUR.panel, ease: EASE_OUT }}
-          >
-            {step === "target" && (
-              <TargetStep
-                projectId={projectId}
-                targets={targets}
-                activeTargetId={activeTargetId}
-                onSelect={setActiveTargetId}
-                onChanged={async () => {
-                  await refresh();
-                }}
-                onNext={() => setStep("epitope")}
-              />
-            )}
-
-            {step === "epitope" && activeTarget && (
-              <EpitopeStep
-                projectId={projectId}
-                target={activeTarget}
-                onSaved={async () => {
-                  await refresh();
-                  setStep("design");
-                }}
-              />
-            )}
-
-            {step === "design" && activeTarget && (
-              <DesignStep
-                projectId={projectId}
-                target={activeTarget}
-                remainingUsd={remaining}
-                onSubmitted={async (run) => {
-                  setActiveRunId(run.id);
-                  await refresh();
-                  setStep("results");
-                }}
-              />
-            )}
-
-            {step === "results" && (
-              <ResultsStep
-                projectId={projectId}
-                runs={runs}
-                activeRunId={activeRunId}
-                onSelectRun={setActiveRunId}
-                onRunUpdated={async () => {
-                  await refresh();
-                }}
-                isRunActive={
-                  activeRun !== null && ACTIVE_STATUSES.includes(activeRun.status)
-                }
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
       </div>
+
+      {/* --- the four steps, as a line ---------------------------------- */}
+      <nav aria-label="Steps" className="py-5">
+        {/* All four must fit on a phone. If the line scrolls, the step you are
+            actually on ends up off-screen, which is worse than small type. */}
+        <ol className="flex items-stretch gap-1.5 sm:gap-0">
+          {STEPS.map((s, i) => {
+            const current = step === s.key;
+            const complete = done[s.key];
+            const open = reachable[s.key];
+            return (
+              <li key={s.key} className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  disabled={!open}
+                  onClick={() => setStep(s.key)}
+                  aria-current={current ? "step" : undefined}
+                  className="group relative block w-full pb-3 pt-1 text-left disabled:cursor-not-allowed"
+                >
+                  {/* The rail. Filled behind every step already reached. */}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-x-0 top-0 h-[3px] ${
+                      i <= stepIndex ? "bg-signal" : "bg-line"
+                    } ${i === 0 ? "rounded-l-full" : ""} ${
+                      i === STEPS.length - 1 ? "rounded-r-full" : ""
+                    } transition-colors duration-[var(--dur-panel)]`}
+                  />
+                  <span className="mt-3 flex items-center gap-1.5 sm:gap-2">
+                    <span
+                      className={`grid size-[20px] shrink-0 place-items-center rounded-full border text-[11px] sm:size-[22px] sm:text-[12px] transition-colors duration-[var(--dur-ui)] ${
+                        complete
+                          ? "border-signal bg-signal text-white"
+                          : current
+                            ? "border-signal text-signal"
+                            : open
+                              ? "border-line text-muted"
+                              : "border-line text-faint"
+                      }`}
+                    >
+                      {complete ? "✓" : i + 1}
+                    </span>
+                    <span
+                      className={`truncate text-[13px] sm:text-sm ${
+                        current
+                          ? "font-medium text-ink"
+                          : open
+                            ? "text-muted group-hover:text-ink"
+                            : "text-faint"
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      {error && (
+        <div className="mb-5">
+          <Notice tone="danger" title={error} />
+        </div>
+      )}
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: DUR.panel, ease: EASE_OUT }}
+        >
+          {step === "target" && (
+            <TargetStep
+              projectId={projectId}
+              targets={targets}
+              activeTargetId={activeTargetId}
+              onSelect={setActiveTargetId}
+              onChanged={async () => {
+                await refresh();
+              }}
+              onNext={() => setStep("epitope")}
+            />
+          )}
+
+          {step === "epitope" && activeTarget && (
+            <EpitopeStep
+              projectId={projectId}
+              target={activeTarget}
+              onSaved={async () => {
+                await refresh();
+                setStep("design");
+              }}
+            />
+          )}
+
+          {step === "design" && activeTarget && (
+            <DesignStep
+              projectId={projectId}
+              target={activeTarget}
+              remainingUsd={remaining}
+              onSubmitted={async (run) => {
+                setActiveRunId(run.id);
+                await refresh();
+                setStep("results");
+              }}
+            />
+          )}
+
+          {step === "results" && (
+            <ResultsStep
+              projectId={projectId}
+              runs={runs}
+              activeRunId={activeRunId}
+              onSelectRun={setActiveRunId}
+              onRunUpdated={async () => {
+                await refresh();
+              }}
+              isRunActive={
+                activeRun !== null && ACTIVE_STATUSES.includes(activeRun.status)
+              }
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

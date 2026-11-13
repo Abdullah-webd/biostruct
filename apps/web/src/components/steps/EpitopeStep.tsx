@@ -1,28 +1,39 @@
 "use client";
 
 /**
- * Choosing the epitope. The most dangerous step in the product, so the UI is
- * built to make the conversion visible rather than hidden.
+ * Step 2 — choose where on the protein to attack.
  *
- * A researcher names residues the way the literature does — Ser70. The design
- * model wants a 0-based index into the modelled chain, which for KPC-2 is 39.
- * There is also a third system: UniProt calls the same residue 69. Nothing
- * errors if you get it wrong; the run completes and designs against the wrong
- * surface. So the panel shows the numbering, the gaps, the resolved indices and
- * the resulting amino acids, and offers to verify the mapping against what the
- * caller expects.
+ * This is still the most dangerous step in the product, so the conversion stays
+ * visible rather than hidden. A researcher names building blocks the way the
+ * literature does — Ser70. The design model wants a 0-based index into the
+ * modelled chain, which for KPC-2 is 39. There is a third system too: UniProt
+ * calls the same one 69. Nothing errors if you get it wrong; the run completes
+ * and designs against the wrong surface.
+ *
+ * What changed in v2 is who has to do the work. v1 opened with an empty box and
+ * expected you to know the numbers. v2 fills in the known attack site, checks
+ * it, and shows you the result to confirm — so the common case is reading
+ * rather than typing, and the box is still there when you want it.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, endpoints, type Target } from "@/lib/api";
-import { Button, Field, Notice, Panel, Readout } from "@/components/ui";
+import { Button, Field, Notice, Panel, Readout, StepHeader, Term } from "@/components/ui";
 import { StructureViewer } from "@/components/StructureViewer";
+import { STEP_INTRO } from "@/lib/words";
 
 const THREE_LETTER: Record<string, string> = {
   A: "Ala", R: "Arg", N: "Asn", D: "Asp", C: "Cys", Q: "Gln", E: "Glu",
   G: "Gly", H: "His", I: "Ile", L: "Leu", K: "Lys", M: "Met", F: "Phe",
   P: "Pro", S: "Ser", T: "Thr", W: "Trp", Y: "Tyr", V: "Val",
+};
+
+const FULL_NAME: Record<string, string> = {
+  A: "alanine", R: "arginine", N: "asparagine", D: "aspartate", C: "cysteine",
+  Q: "glutamine", E: "glutamate", G: "glycine", H: "histidine", I: "isoleucine",
+  L: "leucine", K: "lysine", M: "methionine", F: "phenylalanine", P: "proline",
+  S: "serine", T: "threonine", W: "tryptophan", Y: "tyrosine", V: "valine",
 };
 
 export default function EpitopeStep({
@@ -35,10 +46,18 @@ export default function EpitopeStep({
   onSaved: () => Promise<void>;
 }) {
   const best = target.structures[0];
+  const suggestion = target.active_sites;
+
+  // UniProt counts from 0 here; the PDB file and the papers count from 1.
+  const suggested = useMemo(
+    () => suggestion.map((s) => s.position + 1),
+    [suggestion],
+  );
+
   const [pdbId, setPdbId] = useState(target.epitope?.pdb_id ?? best?.pdb_id ?? "");
   const [chainId, setChainId] = useState(target.epitope?.chain_id ?? "A");
   const [residues, setResidues] = useState(
-    (target.epitope?.author_residues ?? []).join(", "),
+    (target.epitope?.author_residues ?? suggested).join(", "),
   );
   const [verify, setVerify] = useState(true);
   const [preview, setPreview] = useState<{
@@ -64,7 +83,9 @@ export default function EpitopeStep({
   );
 
   /** A dry run: convert without saving, so a mistake is visible first. */
-  async function check() {
+  const check = useCallback(async () => {
+    // Yield first, so nothing is set synchronously inside a calling effect.
+    await Promise.resolve();
     setBusy(true);
     setError("");
     setDetail("");
@@ -83,12 +104,27 @@ export default function EpitopeStep({
         setError(e.message);
         setDetail(e.detail ?? "");
       } else {
-        setError("Could not read the residue mapping");
+        setError("Could not check those positions against the structure");
       }
     } finally {
       setBusy(false);
     }
-  }
+  }, [pdbId, chainId, parsed]);
+
+  /* Check the pre-filled suggestion once, on arrival, so the common case is
+     confirming a result rather than performing a lookup. Only ever runs when
+     the page filled the box itself. */
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (autoChecked.current) return;
+    if (!pdbId || parsed.length === 0) return;
+    if (target.epitope) return;
+    autoChecked.current = true;
+    // check() yields before touching state, so this is not a synchronous
+    // setState during the effect; the rule cannot follow it across the call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void check();
+  }, [pdbId, parsed.length, target.epitope, check]);
 
   async function save() {
     setBusy(true);
@@ -116,25 +152,23 @@ export default function EpitopeStep({
         setError(e.message);
         setDetail(e.detail ?? "");
       } else {
-        setError("Could not save the epitope");
+        setError("Could not save that attack site");
       }
       setBusy(false);
     }
   }
 
-  const suggestion = target.active_sites;
+  const prefilled =
+    !target.epitope &&
+    suggested.length > 0 &&
+    parsed.length === suggested.length &&
+    parsed.every((n, i) => n === suggested[i]);
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <header>
-        <p className="text-[10px] uppercase tracking-widest text-signal">step 03</p>
-        <h2 className="display mt-1 text-2xl">Choose the epitope</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          Name residues in the numbering the literature uses — 70 for KPC-2&rsquo;s
-          catalytic serine. We convert to the index the model needs and refuse if
-          a residue is not in the structure, rather than snapping to a neighbour.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <StepHeader title="Where on that protein should we attack?">
+        {STEP_INTRO.epitope}
+      </StepHeader>
 
       {error && (
         <Notice tone="danger" title={error}>
@@ -144,17 +178,69 @@ export default function EpitopeStep({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
         <div className="space-y-5">
-          <Panel title="Structure and residues">
-            <div className="space-y-4 p-4">
-              <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+          {prefilled && (
+            <Notice tone="good" title="We filled this in for you">
+              These are the positions science has already identified as this
+              protein&rsquo;s working parts — the ones that actually destroy the
+              antibiotic. If you have no reason to change them, go straight on.
+            </Notice>
+          )}
+
+          {/* The confirmation, before the controls: the common case is reading. */}
+          {preview && (
+            <Panel title="What you have selected">
+              <div className="p-4">
+                <p className="text-sm leading-relaxed text-ink">
+                  {preview.letters ? (
+                    <>
+                      The designed protein will be aimed at{" "}
+                      <span className="font-medium">
+                        {preview.letters
+                          .split("")
+                          .map((l, i) => `${FULL_NAME[l] ?? l} ${parsed[i]}`)
+                          .join(", ")}
+                      </span>{" "}
+                      on chain {chainId} of structure{" "}
+                      <span className="tnum">{pdbId.toUpperCase()}</span>. They are
+                      highlighted in pink in the model.
+                    </>
+                  ) : (
+                    "Nothing selected yet."
+                  )}
+                </p>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted">
+                  If those are not the building blocks you meant, the numbers below
+                  are in the wrong system — see the conversion.
+                </p>
+
+                <div className="mt-4">
+                  <Button
+                    variant="primary"
+                    onClick={() => void save()}
+                    disabled={busy || parsed.length === 0}
+                  >
+                    {busy ? "Saving…" : "Use this site, and design against it"}
+                  </Button>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          <details className="group rounded-lg border border-line bg-wash px-4 py-3" open={!preview}>
+            <summary className="cursor-pointer text-sm text-muted transition-colors duration-[var(--dur-ui)] hover:text-ink">
+              Choose the spot myself
+            </summary>
+
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-[1fr_110px]">
                 <label className="block">
-                  <span className="mb-1.5 block text-[11px] uppercase tracking-widest text-muted">
-                    Structure
+                  <span className="mb-1.5 block text-sm font-medium text-ink">
+                    Which measured 3D shape to work from
                   </span>
                   <select
                     value={pdbId}
                     onChange={(e) => setPdbId(e.target.value)}
-                    className="w-full border border-line bg-ground px-3 py-2 text-sm text-ink focus:border-signal"
+                    className="w-full rounded-md border border-line bg-ground px-3 py-2 text-sm text-ink focus:border-signal"
                   >
                     {target.structures.map((s) => (
                       <option key={s.pdb_id} value={s.pdb_id}>
@@ -171,27 +257,23 @@ export default function EpitopeStep({
               </div>
 
               <Field
-                label="Residues (author numbering)"
+                label="Positions to attack"
                 value={residues}
                 onChange={(e) => setResidues(e.target.value)}
                 placeholder="70, 73, 130, 166"
-                hint="Comma separated. These are the numbers in the PDB file and in the papers."
+                hint="Comma separated, using the numbers printed in papers and in the structure file — not UniProt's."
               />
 
               {suggestion.length > 0 && (
-                <div className="border border-line bg-ground p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-faint">
-                    UniProt annotates these active sites
+                <div className="rounded-md border border-line bg-ground p-3">
+                  <p className="text-[13px] font-medium text-ink">
+                    Known working parts of this protein
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">
-                    In <span className="text-ink">UniProt numbering</span>, which is
-                    a different system — position{" "}
-                    <span className="tnum text-ink">{suggestion[0].position}</span>{" "}
-                    here is residue{" "}
-                    <span className="tnum text-ink">{suggestion[0].position + 1}</span>{" "}
-                    in the PDB file for this protein.
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                    Click to add. These have been converted from UniProt&rsquo;s
+                    numbering, which is offset by one from the papers&rsquo;.
                   </p>
-                  <ul className="mt-2 flex flex-wrap gap-2">
+                  <ul className="mt-2.5 flex flex-wrap gap-2">
                     {suggestion.map((site) => (
                       <li key={site.position}>
                         <button
@@ -206,9 +288,9 @@ export default function EpitopeStep({
                             })
                           }
                           title={site.description}
-                          className="tnum border border-line px-2 py-1 text-[11px] text-muted transition-colors duration-[var(--dur-ui)] hover:border-signal hover:text-signal active:scale-[0.97]"
+                          className="tnum rounded border border-line px-2 py-1 text-[12px] text-muted transition-colors duration-[var(--dur-ui)] hover:border-signal hover:text-signal active:scale-[0.97]"
                         >
-                          +{site.position + 1}
+                          + {site.position + 1}
                         </button>
                       </li>
                     ))}
@@ -216,7 +298,7 @@ export default function EpitopeStep({
                 </div>
               )}
 
-              <label className="flex items-start gap-2 text-xs text-muted">
+              <label className="flex items-start gap-2 text-[13px] text-muted">
                 <input
                   type="checkbox"
                   checked={verify}
@@ -224,73 +306,60 @@ export default function EpitopeStep({
                   className="mt-0.5 accent-[var(--color-signal)]"
                 />
                 <span>
-                  Verify the mapping against the expected amino acids. Turns
-                  &ldquo;this looks right&rdquo; into &ldquo;this is right&rdquo;.
+                  Make the server prove it landed on the building blocks shown,
+                  instead of taking it on trust. Leave this on.
                 </span>
               </label>
 
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => void check()} disabled={busy || parsed.length === 0}>
-                  {busy ? "Checking…" : "Check the mapping"}
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => void save()}
-                  disabled={busy || parsed.length === 0 || !preview}
-                >
-                  Save epitope
-                </Button>
-              </div>
+              <Button onClick={() => void check()} disabled={busy || parsed.length === 0}>
+                {busy ? "Checking…" : "Check these positions"}
+              </Button>
             </div>
-          </Panel>
+          </details>
 
           {preview && (
-            <Panel title="Conversion">
+            <Panel title="How your numbers were converted">
               <div className="p-4">
-                <div className="grid gap-px bg-line sm:grid-cols-2">
+                <p className="text-[13px] leading-relaxed text-muted">
+                  Three different numbering systems describe the same{" "}
+                  <Term k="residue" />, and mixing them up is the one mistake here
+                  that produces a confident, wrong answer. So the conversion is
+                  shown rather than assumed.
+                </p>
+                <div className="mt-3 grid gap-px overflow-hidden rounded-md bg-line sm:grid-cols-2">
                   <div className="bg-panel p-3">
-                    <p className="text-[10px] uppercase tracking-widest text-faint">
-                      you entered · author numbering
+                    <p className="text-[13px] text-muted">
+                      What you entered, as papers number it
                     </p>
                     <p className="tnum mt-1 text-sm text-ink">{parsed.join("  ")}</p>
                   </div>
                   <div className="bg-panel p-3">
-                    <p className="text-[10px] uppercase tracking-widest text-faint">
-                      sent to the model · 0-based index
-                    </p>
+                    <p className="text-[13px] text-muted">What the model receives</p>
                     <p className="tnum mt-1 text-sm text-signal">
                       {preview.indices.join("  ")}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 border border-line bg-ground p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-faint">
-                    residues selected
-                  </p>
-                  <p className="tnum mt-1 text-xl tracking-[0.2em] text-epitope">
-                    {preview.letters || "—"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    If these are not the residues you meant, the numbering is wrong.
-                  </p>
-                </div>
-
-                <div className="mt-4 space-y-0 divide-y divide-line">
-                  <Readout label="Chain covers" value={preview.numbering} />
-                  <Readout label="Residues modelled" value={preview.modelled} />
+                <div className="mt-4 divide-y divide-line">
+                  <Readout label="This chain covers" value={preview.numbering} />
                   <Readout
-                    label="Gaps in the numbering"
+                    label="Building blocks actually present"
+                    value={preview.modelled}
+                  />
+                  <Readout
+                    label="Missing stretches"
                     value={preview.gaps.length ? preview.gaps.join(", ") : "none"}
                     tone={preview.gaps.length ? "text-caution" : "text-muted"}
-                    title="Missing residues, usually a disordered loop the crystallographer could not place."
+                    title="Usually a floppy loop the crystallographer could not pin down."
                   />
                 </div>
 
                 {preview.gaps.length > 0 && (
-                  <p className="mt-3 text-xs leading-relaxed text-muted">
-                    This numbering is not contiguous, which is why an offset
-                    calculation would be wrong past the first gap.
+                  <p className="mt-3 text-[13px] leading-relaxed text-muted">
+                    The numbering skips, which is exactly why subtracting a fixed
+                    offset would go wrong after the first gap. Each position is
+                    looked up individually instead.
                   </p>
                 )}
               </div>
@@ -298,9 +367,11 @@ export default function EpitopeStep({
           )}
         </div>
 
-        <div className="lg:sticky lg:top-[65px] lg:self-start">
-          <Panel title={`${pdbId || "structure"} · chain ${chainId}`}>
-            <div className="relative aspect-square">
+        <div className="lg:sticky lg:top-[64px] lg:self-start">
+          <Panel
+            title={pdbId ? `${pdbId.toUpperCase()}, chain ${chainId}` : "3D shape"}
+          >
+            <div className="specimen relative aspect-square overflow-hidden rounded-b-lg">
               {pdbId ? (
                 <StructureViewer
                   url={`https://files.rcsb.org/download/${pdbId.toUpperCase()}.cif`}
@@ -308,17 +379,16 @@ export default function EpitopeStep({
                   epitopeIndices={preview?.indices ?? []}
                 />
               ) : (
-                <div className="absolute inset-0 grid place-items-center text-xs text-faint">
-                  choose a structure
+                <div className="absolute inset-0 grid place-items-center text-[13px] text-faint">
+                  Choose a structure
                 </div>
               )}
             </div>
           </Panel>
-          {best && (
-            <p className="mt-2 text-[11px] leading-relaxed text-faint">
-              {best.title}
-            </p>
-          )}
+          <p className="mt-2 text-[13px] leading-relaxed text-muted">
+            This shape was measured in a lab, not predicted. Drag to turn it.
+          </p>
+          {best && <p className="mt-1 text-[12px] text-faint">{best.title}</p>}
         </div>
       </div>
     </div>

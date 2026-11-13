@@ -42,54 +42,50 @@ await page.click('button[type="submit"]');
 await page.waitForURL("**/projects", { timeout: 30000 });
 await shot("10-projects-empty", 1200);
 
-// --- create a project --------------------------------------------------
-await click("New project");
-await page.waitForSelector('button:has-text("Create project")', { timeout: 15000 });
-const fields = await page.$$("form input");
-await fields[0].fill("KPC-2 nanobody binders");
-await fields[1].fill("Carbapenem-resistant Klebsiella pneumoniae");
-await fields[2].fill("Klebsiella pneumoniae");
-await fields[3].fill("25");
-await shot("11-project-create");
-await click("Create project");
-await page.waitForSelector("text=Find a biological target", { timeout: 30000 });
+// --- create a project from the one-click example -----------------------
+await shot("11-example-offer");
+await click("Walk me through this example");
+await page.waitForSelector("text=Which protein is making this infection resistant?", {
+  timeout: 30000,
+});
 await shot("12-workflow-target", 1500);
 
-// --- target ------------------------------------------------------------
-await click("Search");
-await page.waitForSelector('button:has-text("Add to project")', { timeout: 90000 });
+// --- pick the protein --------------------------------------------------
+await click("KPC carbapenemase");
+await page.waitForSelector('button:has-text("Use this one")', { timeout: 90000 });
 await shot("13-target-results");
-await click("Add to project");
+await click("Use this one");
 // The add fans out to UniProt, RCSB and PubMed, so wait for the result.
-await page.waitForSelector("text=target in this project", { timeout: 120000 });
+await page.waitForSelector("text=protein in this project", { timeout: 120000 });
 await shot("14-target-added", 1200);
 
-// --- epitope -----------------------------------------------------------
-await click("Continue");
-await page.waitForSelector("text=Choose the epitope", { timeout: 30000 });
-await shot("15-epitope-empty", 3500);
-const residueInput = page.locator('input[placeholder*="70"]').first();
-await residueInput.waitFor({ timeout: 15000 });
-await residueInput.fill("70, 73, 130, 166");
-await click("Check the mapping");
-await page.waitForSelector("text=sent to the model", { timeout: 60000 });
-await shot("16-epitope-checked", 1500);
-await click("Save epitope");
-await page.waitForSelector("text=Generate candidates", { timeout: 60000 });
+// --- where to attack ---------------------------------------------------
+await click("Next: choose where to attack");
+await page.waitForSelector("text=Where on that protein should we attack?", {
+  timeout: 30000,
+});
+// The attack site is pre-filled and checked on arrival, so wait for the
+// confirmation rather than typing anything.
+await page.waitForSelector("text=What you have selected", { timeout: 90000 });
+await shot("15-epitope-prefilled", 3500);
+await shot("16-epitope-checked", 500);
+await click("Use this site");
+await page.waitForSelector("text=Design the proteins", { timeout: 60000 });
 await shot("17-design-step", 1500);
 
-// --- estimate and run --------------------------------------------------
-await click("Get an estimate");
-await page.waitForSelector("text=this run will cost", { timeout: 90000 });
+// --- price and run -----------------------------------------------------
+await click("Check the price");
+await page.waitForSelector("text=This run will cost", { timeout: 90000 });
 await shot("18-estimate", 1000);
-await click("Confirm");
-await page.waitForSelector("text=Candidates", { timeout: 90000 });
+await click("and start");
+await page.waitForSelector("text=What came back", { timeout: 90000 });
 await shot("19-run-progress", 2500);
 
 // Test-mode runs finish in seconds; wait for the ranking to appear.
 await page
-  .waitForSelector("text=ranked", { timeout: 180000 })
-  .catch(() => console.log("  (ranking did not appear in time)"));
+  .waitForSelector('h2:has-text("designed proteins, best first")', { timeout: 300000 })
+  .then(() => console.log("  ranking appeared"))
+  .catch(() => console.log("  !! ranking did NOT appear in time"));
 await shot("20-results-ranked", 3000);
 await page.waitForTimeout(6000);
 await shot("21-results-detail");

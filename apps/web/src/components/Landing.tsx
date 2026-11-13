@@ -1,12 +1,18 @@
 "use client";
 
 /**
- * Landing page. Motion dial 7: it has one job, which is to make a stranger
- * understand what this does in about eight seconds.
+ * Landing page. One job: make a stranger understand what this does, and why it
+ * matters, in about eight seconds.
  *
- * The signature is that the hero specimen is the real thing — PDB 2OV5, the
- * KPC-2 carbapenemase this project targets — rotating as it would in the
- * software a structural biologist already uses. Not an abstract blob.
+ * The signature is that the specimen is the real thing — the KPC-2 enzyme this
+ * project targets, straight from the PDB, turning the way it would in the
+ * software a structural biologist already uses. A dark viewport inset into a
+ * white page: the one bold surface, with everything else quiet around it.
+ *
+ * Motion is deliberately thinner than v1. The current design guidance is
+ * explicit that a fade-up on every section reads as generated work, so there is
+ * one orchestrated entrance, one scroll set-piece that earns its scrub because
+ * the fact is genuinely surprising, and nothing else.
  */
 
 import { useGSAP } from "@gsap/react";
@@ -26,13 +32,30 @@ gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 const KPC2_CIF = "https://files.rcsb.org/download/2OV5.cif";
 
 const STEPS = [
-  { n: "01", t: "Infection", d: "Start from the clinical problem, not a protein id." },
-  { n: "02", t: "Target", d: "UniProt, the PDB and PubMed, gathered in one panel with its gaps named." },
-  { n: "03", t: "Epitope", d: "Name residues the way the literature does. We convert, and refuse to guess." },
-  { n: "04", t: "Design", d: "BoltzProt-1 generates binders. You confirm the price before anything is spent." },
-  { n: "05", t: "Structures", d: "Every predicted complex, mirrored into your own storage and rendered." },
-  { n: "06", t: "Ranking", d: "Transparent weights, auditable contributions, and the absolute numbers stated plainly." },
-  { n: "07", t: "Export", d: "Sequences, structures and a provenance report for the bench." },
+  {
+    t: "Name the infection",
+    d: "Start from the bug on the ward, not from a protein ID you already know.",
+  },
+  {
+    t: "Find what makes it resistant",
+    d: "Usually an enzyme the bacterium makes to destroy the drug. We gather what is known about it and say what we could not reach.",
+  },
+  {
+    t: "Choose where to attack it",
+    d: "The working part of that enzyme, pre-selected and checked against the measured structure.",
+  },
+  {
+    t: "Design proteins against it",
+    d: "A model invents small proteins shaped to jam that spot. You see the price before anything is spent.",
+  },
+  {
+    t: "Look at what came back",
+    d: "Every predicted shape, rendered, with the designed protein and the target in different colours.",
+  },
+  {
+    t: "See what is worth a lab",
+    d: "Ranked, with the reasoning shown and the real odds stated — including when the answer is none of them.",
+  },
 ];
 
 export default function Landing() {
@@ -72,45 +95,21 @@ export default function Landing() {
         )
         .from("[data-sub]", { y: 14, opacity: 0, duration: 0.7 }, 0.45)
         .from("[data-cta] > *", { y: 12, opacity: 0, duration: 0.6, stagger: 0.08 }, 0.6)
-        .from("[data-specimen]", { opacity: 0, duration: 1.1 }, 0.2)
-        .from(
-          "[data-stat]",
-          { y: 10, opacity: 0, duration: 0.5, stagger: 0.07 },
-          0.75,
-        );
+        .from("[data-specimen]", { opacity: 0, duration: 1.1 }, 0.2);
 
-      // Set-piece: the numbering problem. Our actual differentiator, and a
-      // genuinely surprising fact, so it earns a pinned scrub.
-      gsap.timeline({
-        scrollTrigger: {
-          trigger: "[data-numbering]",
-          start: "top 72%",
-          end: "bottom 60%",
-          scrub: 0.6,
-        },
-      })
+      // The one set-piece: the numbering problem. It is the product's actual
+      // differentiator and a genuinely surprising fact, so it earns a scrub.
+      gsap
+        .timeline({
+          scrollTrigger: {
+            trigger: "[data-numbering]",
+            start: "top 72%",
+            end: "bottom 60%",
+            scrub: 0.6,
+          },
+        })
         .from("[data-num-row]", { xPercent: -4, opacity: 0, stagger: 0.25, duration: 1 })
         .to("[data-num-converge]", { opacity: 1, duration: 0.8 }, 0.6);
-
-      // Workflow steps: a horizontal reading rhythm rather than a card grid.
-      gsap.from("[data-step]", {
-        scrollTrigger: { trigger: "[data-steps]", start: "top 78%" },
-        y: 20,
-        opacity: 0,
-        duration: 0.7,
-        stagger: 0.07,
-        ease: "expo.out",
-      });
-
-      gsap.utils.toArray<HTMLElement>("[data-section-rule]").forEach((rule) => {
-        gsap.from(rule, {
-          scrollTrigger: { trigger: rule, start: "top 90%" },
-          scaleX: 0,
-          transformOrigin: "left center",
-          duration: 1,
-          ease: "expo.out",
-        });
-      });
 
       return () => window.clearTimeout(viewerTimer);
     },
@@ -123,19 +122,14 @@ export default function Landing() {
         data-nav
         className="sticky top-0 z-30 border-b border-line bg-ground/85 backdrop-blur-md"
       >
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3.5">
-          <span className="flex items-baseline gap-2">
-            <span className="display text-lg tracking-tight">BIOSTRUCT</span>
-            <span className="hidden text-[10px] uppercase tracking-[0.2em] text-faint sm:inline">
-              protein design
-            </span>
-          </span>
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-3.5">
+          <span className="display text-[19px] text-ink">Biostruct</span>
           <div className="flex items-center gap-2">
             <Link href="/login">
               <Button variant="ghost">Sign in</Button>
             </Link>
             <Link href="/register">
-              <Button variant="primary">Start a project</Button>
+              <Button variant="primary">Get started</Button>
             </Link>
           </div>
         </div>
@@ -143,38 +137,30 @@ export default function Landing() {
 
       <main id="main">
         {/* --- hero ------------------------------------------------------ */}
-        <section className="relative mx-auto grid max-w-[1400px] gap-10 px-6 pb-20 pt-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-6 lg:pt-20">
+        <section className="relative mx-auto grid max-w-[1240px] gap-12 px-6 pb-20 pt-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-10 lg:pt-20">
           <div className="relative z-10">
-            <p
-              data-reveal="pending"
-              data-sub
-              className="mb-5 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-signal"
-            >
-              <span className="block h-px w-8 bg-signal" />
-              Drug-resistant infection
-            </p>
-
-            <h1 className="display text-[clamp(2.1rem,4.6vw,3.9rem)]">
+            <h1 className="display text-[clamp(2.1rem,4.4vw,3.6rem)]">
               <span data-split className="block">
-                Design proteins against the targets antibiotics can no longer reach.
+                Some infections have run out of antibiotics. Let&rsquo;s design
+                something new.
               </span>
             </h1>
 
             <p
               data-reveal="pending"
               data-sub
-              className="mt-6 max-w-xl text-base leading-relaxed text-muted"
+              className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted"
             >
-              Biostruct takes you from a resistant infection to a ranked set of
-              candidate protein binders — gathering the target evidence, running
-              the design models, and showing you the structures. It states what
-              the computation does and does not know, every time.
+              Bacteria survive our drugs by making enzymes that chop them up.
+              Biostruct designs small proteins shaped to jam those enzymes, shows
+              you each one in 3D, and tells you honestly which are worth a lab —
+              including when the answer is none of them.
             </p>
 
             <div data-reveal="pending" data-cta className="mt-8 flex flex-wrap gap-3">
               <Link href="/register">
                 <Button variant="primary" className="px-5 py-2.5">
-                  Start a project
+                  Get started
                 </Button>
               </Link>
               <Link href="/login">
@@ -182,90 +168,73 @@ export default function Landing() {
               </Link>
             </div>
 
-            <dl
+            <p
               data-reveal="pending"
-              className="mt-10 grid max-w-xl grid-cols-3 gap-px border border-line bg-line"
+              data-sub
+              className="mt-8 max-w-xl border-l-[3px] border-line pl-4 text-[15px] leading-relaxed text-muted"
             >
-              {[
-                ["Target", "KPC-2", "carbapenemase"],
-                ["Structures", "86", "in the PDB"],
-                ["Per design", "$0.05", "shown before you spend"],
-              ].map(([label, value, note]) => (
-                <div key={label} data-stat className="bg-panel px-4 py-3">
-                  <dt className="text-[10px] uppercase tracking-widest text-faint">
-                    {label}
-                  </dt>
-                  <dd className="tnum mt-1 text-lg text-ink">{value}</dd>
-                  <dd className="text-[11px] text-muted">{note}</dd>
-                </div>
-              ))}
-            </dl>
+              Built for the places where resistant infections are hardest to
+              treat, by people who have to work with what the published evidence
+              actually says.
+            </p>
           </div>
 
-          {/* The specimen. Real structure, rotating, as the field expects. */}
+          {/* The specimen. Real structure, turning, as the field expects. */}
           <div
             data-specimen
-            className="relative aspect-square w-full overflow-hidden border border-line bg-ground lg:aspect-[4/5]"
+            className="specimen relative aspect-square w-full overflow-hidden rounded-lg lg:aspect-[4/5]"
           >
             {showViewer ? (
-              <StructureViewer
-                url={KPC2_CIF}
-                targetChains={["A"]}
-              />
+              <StructureViewer url={KPC2_CIF} targetChains={["A"]} />
             ) : (
               <div className="absolute inset-0 grid place-items-center">
-                <span className="text-[11px] uppercase tracking-widest text-faint">
-                  loading specimen
-                </span>
+                <span className="text-[13px] text-faint">Loading the model…</span>
               </div>
             )}
-            <div className="pointer-events-none absolute left-3 top-3 border border-line bg-panel/85 px-2 py-1 backdrop-blur-sm">
-              <p className="tnum text-[10px] uppercase tracking-widest text-muted">
-                PDB 2OV5 · KPC-2 · 1.85 Å
+            {/* Top, not bottom: the viewer puts its own legend and controls
+                along the bottom edge, and the two would sit on top of each
+                other. */}
+            <div className="pointer-events-none absolute inset-x-3 top-3 rounded-md bg-black/45 px-3 py-2 backdrop-blur-sm">
+              <p className="text-[13px] leading-snug text-white">
+                This is the real enzyme that lets <em>Klebsiella</em> survive our
+                last-resort antibiotics. Measured in a lab, not drawn.
               </p>
             </div>
           </div>
         </section>
 
-        <div data-section-rule className="hairline mx-auto max-w-[1400px]" />
+        <div className="mx-auto max-w-[1240px] border-t border-line" />
 
         {/* --- the numbering problem ------------------------------------- */}
-        <section
-          data-numbering
-          className="mx-auto max-w-[1400px] px-6 py-20 lg:py-28"
-        >
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+        <section data-numbering className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
             <div>
-              <p className="mb-4 text-[11px] uppercase tracking-[0.2em] text-signal">
-                Why this is hard
-              </p>
-              <h2 className="display text-[clamp(1.8rem,3.4vw,2.9rem)]">
-                Three numbering systems describe the same residue.
+              <h2 className="display text-[clamp(1.7rem,3.2vw,2.6rem)]">
+                The mistake that produces a confident, wrong answer
               </h2>
-              <p className="mt-5 max-w-lg text-sm leading-relaxed text-muted">
-                KPC-2&rsquo;s catalytic serine is position 69 in UniProt, residue
-                70 in the literature and in the PDB file, and index 39 in the
-                array the design model wants. The structure models 261 of 293
-                residues, numbered from 30, and the numbering skips 58 and 253.
+              <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-muted">
+                A protein is a chain, and every link in it has a number. The
+                trouble is that three different databases number the same link
+                differently. The spot you want on this enzyme is called 69 in one,
+                70 in the papers, and 39 in the file the design model reads.
               </p>
-              <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted">
-                Subtract an offset and you are reading glycine instead of lysine.
-                Pass the number straight through and you aim 31 residues away, at
-                a different surface. Nothing errors. The run completes, bills you,
-                and designs against the wrong site.
+              <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-muted">
+                Pick the wrong one and nothing breaks. No error appears. The run
+                finishes, charges you, and quietly designs proteins against a part
+                of the enzyme that does not matter.
               </p>
-              <p className="mt-6 max-w-lg border-l-2 border-signal/40 pl-4 text-sm leading-relaxed text-ink">
-                Biostruct converts between all three and refuses when it cannot.
-                Tell it the residue you expect and it verifies the mapping instead
-                of trusting it.
+              <p className="mt-6 max-w-lg border-l-[3px] border-signal pl-4 text-[15px] leading-relaxed text-ink">
+                Biostruct converts between all three, shows you the conversion,
+                and refuses rather than guessing. Tell it which building block you
+                expect to find there and it proves it landed on that one.
               </p>
             </div>
 
             <div className="self-center">
-              <div className="border border-line bg-panel">
-                <div className="grid grid-cols-4 gap-px border-b border-line bg-line text-[10px] uppercase tracking-widest">
-                  {["Literature", "UniProt", "PDB author", "Model index"].map((h) => (
-                    <div key={h} className="bg-panel px-3 py-2 text-faint">
+              <div className="overflow-hidden rounded-lg border border-line">
+                <div className="grid grid-cols-4 gap-px border-b border-line bg-line text-[13px]">
+                  {["In papers", "In UniProt", "In the file", "To the model"].map((h) => (
+                    <div key={h} className="bg-wash px-3 py-2 text-muted">
                       {h}
                     </div>
                   ))}
@@ -292,88 +261,84 @@ export default function Landing() {
                     </div>
                     <div className="flex items-center justify-between bg-panel px-3 py-2.5">
                       <span className="tnum text-sm text-signal">{idx}</span>
-                      <span className="tnum text-xs text-epitope">{letter}</span>
+                      <span className="tnum text-[13px] text-danger">{letter}</span>
                     </div>
                   </div>
                 ))}
               </div>
               <p
                 data-num-converge
-                className="mt-3 text-center text-xs text-faint opacity-0"
+                className="mt-3 text-center text-[13px] text-muted opacity-0"
               >
-                Four different numbers. One catalytic site, spelling S·K·S·E.
+                Four different numbers, one spot on the enzyme.
               </p>
             </div>
           </div>
         </section>
 
-        <div data-section-rule className="hairline mx-auto max-w-[1400px]" />
+        <div className="mx-auto max-w-[1240px] border-t border-line" />
 
         {/* --- workflow -------------------------------------------------- */}
-        <section data-steps className="mx-auto max-w-[1400px] px-6 py-20 lg:py-28">
-          <p className="mb-4 text-[11px] uppercase tracking-[0.2em] text-signal">
-            The workflow
-          </p>
-          <h2 className="display mb-12 max-w-2xl text-[clamp(1.8rem,3.4vw,2.9rem)]">
-            Seven steps, one environment.
+        <section className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
+          <h2 className="display mb-3 max-w-2xl text-[clamp(1.7rem,3.2vw,2.6rem)]">
+            What actually happens
           </h2>
-          <ol className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((step) => (
-              <li key={step.n} data-step className="bg-panel p-5">
-                <span className="tnum text-[11px] text-signal">{step.n}</span>
-                <h3 className="mt-2 text-base font-medium text-ink">{step.t}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-muted">{step.d}</p>
+          <p className="mb-12 max-w-xl text-[15px] leading-relaxed text-muted">
+            Six steps, in one place. You do the first three; the computer does the
+            rest and shows its working.
+          </p>
+          <ol className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <li key={step.t} className="border-t border-line pt-4">
+                <span className="tnum text-[13px] text-faint">{i + 1}</span>
+                <h3 className="mt-1 text-base font-medium text-ink">{step.t}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-muted">{step.d}</p>
               </li>
             ))}
           </ol>
         </section>
 
-        <div data-section-rule className="hairline mx-auto max-w-[1400px]" />
+        <div className="mx-auto max-w-[1240px] border-t border-line" />
 
         {/* --- the honest bit ------------------------------------------- */}
-        <section className="mx-auto max-w-[1400px] px-6 py-20 lg:py-28">
+        <section className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
             <div>
-              <p className="mb-4 text-[11px] uppercase tracking-[0.2em] text-caution">
-                What this is not
-              </p>
-              <h2 className="display text-[clamp(1.8rem,3.4vw,2.9rem)]">
-                None of this is a medicine.
+              <h2 className="display text-[clamp(1.7rem,3.2vw,2.6rem)]">
+                None of this is a medicine
               </h2>
             </div>
-            <div className="space-y-4 text-sm leading-relaxed text-muted">
+            <div className="space-y-4 text-[15px] leading-relaxed text-muted">
               <p>
-                Biostruct produces computational prioritisation: an ordering of
-                which candidates are worth testing first. It does not show that
-                any of them binds its target, and it certainly does not show a
-                therapeutic effect. Experimental validation is always required.
+                What comes out is a shortlist: which designs are worth testing
+                first. It is not proof that any of them sticks to its target, and
+                it is certainly not proof that any of them would treat anyone.
+                Somebody has to make them and test them.
               </p>
               <p>
-                That is not boilerplate. A real run against KPC-2 returned
-                predicted binding confidences around{" "}
-                <span className="tnum text-ink">2×10⁻⁶</span>. Because scores are
-                normalised within a run, the best of those ten designs still
-                ranked first — so the platform reports the absolute number in the
-                same breath as the rank, and says plainly when nothing in a run
-                is expected to bind.
+                That is not small print. A real run against this enzyme came back
+                with every design scoring about{" "}
+                <span className="tnum text-ink">two in a million</span>. Because
+                rankings are worked out within a batch, the best of those ten
+                still came first — so Biostruct prints the real odds next to the
+                rank, and says plainly when nothing in a batch is expected to
+                work.
               </p>
               <p className="text-ink">
-                A real campaign generates thousands of designs and expects almost
-                all of them to fail. An interface that hides that is not helping
-                anyone.
+                A serious campaign designs thousands and expects nearly all of
+                them to fail. An interface that hides that is not helping anyone.
               </p>
             </div>
           </div>
         </section>
 
         <footer className="border-t border-line">
-          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-6 py-8">
-            <p className="text-xs text-faint">
-              Biostruct · computational prioritisation, not evidence of
-              therapeutic effect
+          <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-6 py-8">
+            <p className="text-[13px] text-muted">
+              Biostruct — a shortlist for the bench, not evidence of a cure.
             </p>
             <Link href="/register">
-              <Button variant="primary">Start a project</Button>
+              <Button variant="primary">Get started</Button>
             </Link>
           </div>
         </footer>

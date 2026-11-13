@@ -1,158 +1,134 @@
-# Biostruct — design direction
+# Biostruct — design direction (v2)
 
-Written before any UI code, per the house standard. The brief: production-ready,
-and the 3D view should feel like the molecular software researchers actually
-use — sharp, with the specimen rotating under the lens.
+v1 was dark with an acid-green accent. Anthropic's `frontend-design` guidance
+lists that exact combination as one of the clusters that reads as generated
+design, along with three other things v1 did on every screen: tracked-out
+ALL-CAPS eyebrows above headings, meta strings joined with middle dots, and a
+monospace face for small labels. It also did the deeper thing wrong — it named
+every control after the system rather than after what a person is trying to do.
 
-## Subject
+So v2 changes both the look and the language.
 
-A computational instrument for designing therapeutic proteins against
-drug-resistant bacteria. Its users are microbiologists and computational
-biologists, often at African research institutions, who know the clinical
-problem intimately and should not have to learn protein-design tooling to act
-on it.
+## Who this is for
 
-The job of the interface: carry someone from "carbapenem-resistant *Klebsiella*
-on my ward" to a ranked, honestly-caveated list of candidate binders — without
-ever overstating what the computer actually knows.
+Not only the handful of people who can already design proteins. A clinical
+microbiologist who knows resistance intimately but has never heard of an
+epitope should be able to get to a result, and a judge with no biology should
+understand what happened.
 
-Its visual world is **not** the AI-startup world. It is crystallography and lab
-instrumentation: mmCIF files, Ambler residue numbering with its gaps, ribbon
-renderings on a dark field, confidence colouring, fixed-width readouts, the
-oscilloscope-green of a measurement that has settled.
+That rules out the system's vocabulary as the interface. "Epitope",
+"UniProt accession", "author numbering", "ipTM" describe how the thing is
+built. People care about: which bug, which protein makes it resistant, where to
+attack it, what came out, is any of it any good.
 
-## Motion dial
+## Light, not dark
 
-- **7** on the landing page — it has one job, which is to make a stranger
-  understand what this does in eight seconds.
-- **5** in the app — route transitions, data arriving in sequence, animated
-  metric bars, tactile controls. No scroll theatrics in a tool someone uses for
-  an hour.
-- The **viewer** is the exception and the signature: the molecule rotates
-  continuously, because that is what the real software does and it is how a
-  structural biologist reads a fold.
+White paper. This is a document you'd put findings in, not a console. It reads
+as clinical and calm, it prints, it survives a projector in a bright room, and
+it is the opposite of the dark-plus-neon default.
 
-## Motion thesis
-
-> Everything behaves like a precision instrument: readouts settle into place,
-> the specimen rotates continuously under the lens, and nothing moves unless it
-> is reporting a measurement.
-
-That rules out decorative motion by definition, and it justifies the one piece
-of continuous animation in the product.
-
-## Palette
-
-Dark ground, because every molecular viewer in the field is dark and a light
-one would read as a toy. One sharp accent rather than a spread.
+The one place that stays dark is **the 3D viewport**, because a specimen is lit
+against a dark field in every piece of structural software there is. A dark
+panel inset into a white page is the single bold move, and everything else
+stays quiet around it.
 
 | Role | Hex | Use |
 |---|---|---|
-| ground | `#0A0E14` | page background, viewer field |
-| panel | `#121821` | cards, rails, readout surfaces |
-| line | `#222C3A` | hairlines, borders |
-| ink | `#E6EDF3` | primary text |
-| muted | `#7D8B9A` | secondary text, units |
-| **signal** | `#00E5A0` | accent, focus, the designed binder |
-| target | `#5B8DEF` | the target protein chain |
-| epitope | `#FF4D8D` | highlighted epitope residues |
-| caution | `#FFB454` | caveats, low confidence, test-mode |
+| paper | `#FFFFFF` | page |
+| wash | `#F7F7F5` | panels, table stripes |
+| rule | `#E4E4E0` | hairlines |
+| ink | `#16181D` | body text |
+| ink-soft | `#5B6270` | secondary text |
+| ink-faint | `#8A909C` | captions, units |
+| accent | `#1F5FAE` | links, primary action, focus |
+| concern | `#B4451F` | resistance, warnings, "nothing worked" |
+| growth | `#1F7A54` | the designed protein, good outcomes |
+| specimen | `#0E1117` | the 3D viewport only |
 
-Chain colours are picked to differ in lightness as well as hue, so binder and
-target remain distinguishable with deuteranopia.
+Blue and rust rather than neon: it is the palette of a medical chart, and the
+rust carries the emotional weight of the subject without shouting.
 
 ## Type
 
-Not Inter, not Geist, not Space Grotesk.
+**IBM Plex** throughout, in three cuts. One family, so the page is disciplined;
+Plex was drawn for technical products and has a warmth that Inter lacks.
 
-- **Archivo** for UI and display (Archivo Expanded at display sizes) — a
-  technical grotesque with real width variation, so headlines can be set wide
-  and tight without a second family.
-- **JetBrains Mono** for every number, residue identifier, sequence and metric.
-  Tabular figures are not decorative here: a column of confidences has to align
-  to be readable, and sequences must be monospaced to be countable.
+- **Plex Serif** for headlines. A serif on white reads as considered and
+  medical rather than start-up.
+- **Plex Sans** for everything a person reads or clicks.
+- **Plex Mono** only where characters must line up and be counted: protein
+  sequences, residue numbers, metric columns. Never for a label — that was a v1
+  tell.
+
+Sentence case everywhere. No ALL-CAPS labels.
+
+## Language
+
+A glossary lives in one file (`lib/words.ts`) so the whole product says the same
+thing, and so the wording can be reviewed as writing rather than hunted through
+components.
+
+| System says | Interface says |
+|---|---|
+| Epitope | the site to attack |
+| UniProt / accession | protein record |
+| Author residue numbering | residue numbers as written in papers |
+| Design run | designing proteins |
+| Binding confidence | predicted chance it sticks |
+| ipTM | how well the two fit together |
+| min interaction PAE | how certain that fit is |
+| Structure confidence | how certain the protein's shape is |
+| Candidate | designed protein |
+| Harvest / reconciler | *(never shown)* |
+
+Every step opens with one plain sentence saying what is about to happen and
+why, written for someone who has never done this.
 
 ## Layout
 
-The app is not a marketing page and should not be shaped like one.
+v1 put a seven-item rail on the left. Four of those were things the user had to
+do and three were decoration. v2 shows the four real steps as a single
+horizontal progress line at the top, because it is a sequence and that is the
+honest use of numbering.
 
 ```
-┌────────────┬──────────────────────────────────────────────┐
-│  BIOSTRUCT │  project · Carbapenem-resistant K. pneumoniae│
-│            ├──────────────────────────────────────────────┤
-│ 1 INFECTION│                                              │
-│ 2 TARGET  ●│   main canvas                                │
-│ 3 EPITOPE  │   (dense, real data, no hero space)          │
-│ 4 DESIGN   │                                              │
-│ 5 RESULTS  │                                              │
-│ 6 COMPARE  │                                              │
-│ 7 EXPORT   │                                              │
-│            │                                              │
-│ ─────────  │                                              │
-│ budget     │                                              │
-│ $24.50 left│                                              │
-└────────────┴──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Biostruct                                   project · menu  │
+├──────────────────────────────────────────────────────────────┤
+│  ①━━━━━━━━②━━━━━━━━③━━━━━━━━④                                │
+│  Protein   Site     Design   Results                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  One sentence saying what this step is for.                  │
+│                                                              │
+│  ┌───────────────────────────┐  ┌─────────────────────────┐  │
+│  │  the work                 │  │ ███ dark specimen ███   │  │
+│  │                           │  │ ███   viewport    ███   │  │
+│  └───────────────────────────┘  └─────────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-A persistent left rail of the seven workflow steps, like the function selector
-on a bench instrument: it shows where you are in a process, not where you can
-navigate. Budget sits at its foot because spending is a first-class concern.
+## The one-click path
 
-Candidate detail splits the other way: the viewer takes the field, the readouts
-sit beside it in a fixed-width column.
+A "Show me an example" button fills in a real, working case — carbapenem-
+resistant *Klebsiella*, KPC-2, the catalytic site — and walks it through. Nobody
+evaluating this in five minutes should have to know what to type.
 
-```
-┌─────────────────────────────────────┬────────────────────┐
-│                                     │ rank 1 of 10       │
-│         [ rotating complex ]        │ ─────────────────  │
-│                                     │ binding   2.35e-06 │
-│    binder NANO1  ·  target A        │ ipTM        0.7632 │
-│         epitope ·                   │ PAE          3.540 │
-│                                     │ fold        0.5773 │
-│  ◼ cartoon ◻ surface ◻ spin         │ ─────────────────  │
-└─────────────────────────────────────┴────────────────────┘
-```
+## Motion
 
-## Signature
+One orchestrated moment on the landing page, and then restraint. The current
+guidance is explicit that fade-up on every section and hover lift on every card
+read as generated, so v2 drops those. What stays:
 
-**The molecule is the hero, and honesty is the other half of it.**
+- the specimen rotating, which is the subject behaving the way the real
+  software behaves
+- the step line advancing when a step completes
+- progress that reflects a real job, and results arriving when they arrive
+- feedback on controls, because a control that does not answer feels broken
 
-On the landing page the real KPC-2 structure rotates behind the headline, and
-on scroll the camera scrubs from the whole protein down to the catalytic site
-with Ser70, Lys73, Ser130 and Glu166 labelling themselves as they arrive. The
-thing the product does, shown with the actual thing.
+## Still true from v1
 
-The second half is unusual and deliberate. Most products bury their caveats in
-grey 11px text. Here the **verdict is a designed component**: a candidate with a
-negligible predicted binding probability says so in the same visual weight as
-its rank, and a run where nothing is predicted to bind says that across the top
-of the results rather than presenting a cheerful ordered list. The live run that
-produced `binding_confidence = 2.35e-06` is exactly why — see
-[boltz-api-observed.md](boltz-api-observed.md). Designing the honesty in is the
-part a competitor would not copy.
-
-## Set-pieces
-
-Landing (dial 7):
-1. **Intro** — molecule fades in already rotating; headline arrives line by
-   line; nav and CTA live immediately. ≤ 1.4s.
-2. **Scrubbed zoom** — whole protein to active site, pinned, residue labels
-   appearing on arrival.
-3. **The numbering problem** — a scrubbed diagram of UniProt 69 / author 70 /
-   index 39 resolving onto the same residue. Our actual differentiator, and it
-   earns its space because it is a genuinely surprising fact.
-
-App (dial 5):
-- route transitions with the View Transitions API
-- table rows and candidate cards arrive in sequence on data load, not all at once
-- metric bars grow from zero on first view only
-- skeleton to content, never a spinner on a full page
-- SSE run progress that tracks the actual job rather than animating hopefully
-- 120ms press feedback on every control, accent focus rings
-
-## What this deliberately is not
-
-No purple-to-blue gradient hero. No centered hero over three identical feature
-cards. No emoji as icons. No glassmorphism. No count-up vanity statistics. No
-stock laboratory photography — the only imagery is real structural data, because
-we have real structural data.
+The honesty is the product. A test-mode run says so plainly. A protein with a
+negligible predicted chance says that next to its rank, not in a footnote. A run
+where nothing worked says so before showing the list. That survives the
+redesign unchanged, in plainer words.

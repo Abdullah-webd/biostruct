@@ -54,11 +54,8 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <main id="main" className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <Link href="/" className="mb-10 inline-flex items-baseline gap-2">
-        <span className="display text-lg">BIOSTRUCT</span>
-        <span className="text-[10px] uppercase tracking-[0.2em] text-faint">
-          protein design
-        </span>
+      <Link href="/" className="mb-10 inline-block">
+        <span className="display text-xl text-ink">Biostruct</span>
       </Link>
 
       <h1 className="display text-3xl">
@@ -66,7 +63,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
         {isRegister
-          ? "Projects, targets and design runs are private to your account."
+          ? "Your projects and results are private to you."
           : "Welcome back."}
       </p>
 
@@ -135,14 +132,14 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         {isRegister ? (
           <>
             Already have an account?{" "}
-            <Link href="/login" className="text-signal underline-offset-4 hover:underline">
+            <Link href="/login" className="text-signal underline underline-offset-4 hover:no-underline">
               Sign in
             </Link>
           </>
         ) : (
           <>
             No account yet?{" "}
-            <Link href="/register" className="text-signal underline-offset-4 hover:underline">
+            <Link href="/register" className="text-signal underline underline-offset-4 hover:no-underline">
               Create one
             </Link>
           </>

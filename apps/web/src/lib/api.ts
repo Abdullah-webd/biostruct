@@ -467,14 +467,14 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   worth_testing_first: "Worth testing first",
   mixed: "Mixed signals",
   weak: "Weak",
-  no_predicted_binding: "Not predicted to bind",
+  no_predicted_binding: "Not predicted to stick",
 };
 
 /** A band's colour token. Negligible is deliberately not red-alarming: it is
  *  the expected outcome for a small run, not an error. */
 export const BAND_TONE: Record<string, string> = {
-  high: "text-signal",
-  moderate: "text-signal",
+  high: "text-good",
+  moderate: "text-good",
   low: "text-caution",
   negligible: "text-muted",
   "not reported": "text-faint",

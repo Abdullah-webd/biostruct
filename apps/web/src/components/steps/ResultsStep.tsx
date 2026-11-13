@@ -24,20 +24,30 @@ import {
   type Ranking,
   VERDICT_LABEL,
 } from "@/lib/api";
-import { Button, Empty, Notice, Panel, Readout, SkeletonRows } from "@/components/ui";
+import {
+  Button,
+  Empty,
+  Notice,
+  Panel,
+  Readout,
+  SkeletonRows,
+  StepHeader,
+  Term,
+} from "@/components/ui";
 import { StructureViewer } from "@/components/StructureViewer";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
+import { BAND_WORDS, METRIC_WORDS, STEP_INTRO } from "@/lib/words";
 
 const STATUS_LABEL: Record<DesignRun["status"], string> = {
-  pending: "queued",
-  running: "generating designs",
-  harvesting: "collecting results",
-  succeeded: "finishing",
-  complete: "complete",
+  pending: "waiting to start",
+  running: "designing proteins",
+  harvesting: "collecting the results",
+  succeeded: "finishing up",
+  complete: "finished",
   failed: "failed",
   stopped: "stopped",
   submit_failed: "never started",
-  harvest_partial: "complete, with missing structures",
+  harvest_partial: "finished, but some 3D shapes are missing",
 };
 
 export default function ResultsStep({
@@ -134,8 +144,10 @@ export default function ResultsStep({
 
   if (runs.length === 0) {
     return (
-      <div className="p-4 sm:p-6">
-        <Empty title="No runs yet">Submit a design run in step 04.</Empty>
+      <div>
+        <Empty title="Nothing has been designed yet">
+          Go back to step 3 and start a run.
+        </Empty>
       </div>
     );
   }
@@ -147,41 +159,42 @@ export default function ResultsStep({
       : null;
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-signal">step 05</p>
-          <h2 className="display mt-1 text-2xl">Candidates</h2>
-        </div>
-        {runs.length > 1 && (
-          <label className="text-xs text-muted">
-            <span className="mr-2 uppercase tracking-widest">run</span>
+    <div className="space-y-6">
+      <StepHeader
+        title="What came back"
+        aside={
+          runs.length > 1 ? (
+          <label className="text-[13px] text-muted">
+            <span className="mr-2">Showing</span>
             <select
               value={activeRunId ?? ""}
               onChange={(e) => onSelectRun(e.target.value)}
-              className="border border-line bg-ground px-2 py-1.5 text-sm text-ink focus:border-signal"
+              className="rounded-md border border-line bg-ground px-2 py-1.5 text-sm text-ink focus:border-signal"
             >
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {new Date(r.created_at).toLocaleString()} · {r.num_proteins} designs ·{" "}
-                  {STATUS_LABEL[r.status]}
+                  {new Date(r.created_at).toLocaleString()} — {r.num_proteins}{" "}
+                  designs, {STATUS_LABEL[r.status]}
                 </option>
               ))}
             </select>
           </label>
-        )}
-      </header>
+          ) : undefined
+        }
+      >
+        {STEP_INTRO.results}
+      </StepHeader>
 
       {error && <Notice tone="danger" title={error} />}
 
       {run && (
         <Panel
-          title={`run · ${STATUS_LABEL[run.status]}`}
+          title={`This run: ${STATUS_LABEL[run.status]}`}
           aside={
             isRunActive ? (
-              <span className="flex items-center gap-2 text-[11px] text-signal">
+              <span className="flex items-center gap-2 text-[13px] text-signal">
                 <span className="block size-1.5 animate-pulse rounded-full bg-signal" />
-                live
+                running now
               </span>
             ) : null
           }
@@ -189,33 +202,38 @@ export default function ResultsStep({
           <div className="p-4">
             {isRunActive && (
               <>
-                <div className="mb-3 h-1 w-full overflow-hidden bg-ground">
+                <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-panel-hi">
                   {/* Tracks the actual job rather than animating hopefully. */}
                   <motion.div
-                    className="h-full bg-signal"
+                    className="h-full rounded-full bg-signal"
                     initial={{ width: 0 }}
                     animate={{ width: `${pct ?? 0}%` }}
                     transition={{ duration: DUR.panel, ease: EASE_OUT }}
                   />
                 </div>
-                <p className="tnum text-xs text-muted">
-                  {progress?.generated ?? 0} of {progress?.total_to_generate ?? "?"}{" "}
-                  designs generated
-                  {progress && progress.harvested > 0 &&
-                    ` · ${progress.harvested} collected`}
+                <p className="text-[13px] text-muted">
+                  <span className="tnum">{progress?.generated ?? 0}</span> of{" "}
+                  <span className="tnum">{progress?.total_to_generate ?? "?"}</span>{" "}
+                  proteins designed so far
+                  {progress && progress.harvested > 0 && (
+                    <>
+                      {" · "}
+                      <span className="tnum">{progress.harvested}</span> collected
+                    </>
+                  )}
                 </p>
               </>
             )}
 
             <div className="mt-2 grid gap-x-8 gap-y-0 divide-line sm:grid-cols-2">
-              <Readout label="Designs requested" value={run.num_proteins} />
-              <Readout label="Modality" value={run.modality} />
+              <Readout label="Proteins designed" value={run.num_proteins} />
+              <Readout label="Shape designed" value={run.modality} />
               <Readout
-                label="Epitope"
-                value={`${run.epitope_pdb_id} · ${run.epitope_chain_id}`}
+                label="Attacked on"
+                value={`${run.epitope_pdb_id.toUpperCase()}, chain ${run.epitope_chain_id}`}
               />
               <Readout
-                label="Cost"
+                label="Spent"
                 value={run.cost_actual_usd ?? run.cost_estimate_usd}
                 unit="USD"
               />
@@ -223,17 +241,17 @@ export default function ResultsStep({
 
             {!run.livemode && (
               <div className="mt-4">
-                <Notice tone="caution" title="Test-mode run — these results are synthetic">
-                  The metrics below were not produced by the real model and the
-                  structure is a placeholder. Useful for checking the workflow.
-                  Not findings, and not exportable as such.
+                <Notice tone="caution" title="This was a practice run — the numbers below are made up">
+                  No real model produced these, and the 3D shape is a stand-in. It
+                  shows you how the tool works. Do not read anything into the
+                  results, and do not take them to a lab.
                 </Notice>
               </div>
             )}
 
             {run.status === "harvest_partial" && (
               <div className="mt-4">
-                <Notice tone="caution" title="Some structures could not be saved">
+                <Notice tone="caution" title="Some 3D shapes could not be saved">
                   {run.error}
                 </Notice>
               </div>
@@ -241,8 +259,8 @@ export default function ResultsStep({
 
             {(run.status === "failed" || run.status === "submit_failed") && (
               <div className="mt-4">
-                <Notice tone="danger" title="This run did not produce results">
-                  {run.error} Your budget was not charged.
+                <Notice tone="danger" title="This run produced nothing">
+                  {run.error} You were not charged.
                 </Notice>
               </div>
             )}
@@ -258,8 +276,8 @@ export default function ResultsStep({
           tone={ranking.nothing_predicted_to_bind ? "caution" : "signal"}
           title={
             ranking.nothing_predicted_to_bind
-              ? "Nothing in this run is predicted to bind"
-              : "Run assessment"
+              ? "Nothing in this batch is predicted to stick"
+              : "What this batch amounts to"
           }
         >
           {ranking.assessment}
@@ -268,7 +286,13 @@ export default function ResultsStep({
 
       {ranking && ranking.items.length > 0 && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-          <Panel title={`${ranking.total} ranked`}>
+          <Panel
+            title={
+              ranking.total === 1
+                ? "1 designed protein, best first"
+                : `${ranking.total} designed proteins, best first`
+            }
+          >
             <ul className="divide-y divide-line">
               {ranking.items.map((item, index) => {
                 const active = selected?.candidate.id === item.candidate.id;
@@ -290,25 +314,27 @@ export default function ResultsStep({
                       <div className="flex items-center justify-between gap-3">
                         <span className="flex items-center gap-3">
                           <span className="tnum text-sm text-faint">
-                            {String(item.rank).padStart(2, "0")}
+                            {item.rank}
                           </span>
                           <span className={`text-xs ${BAND_TONE[item.binding_band] ?? "text-muted"}`}>
                             {VERDICT_LABEL[item.verdict]}
                           </span>
                         </span>
-                        <span className="tnum text-xs text-muted">
-                          binding{" "}
+                        <span className="text-[13px] text-muted">
                           <span className={BAND_TONE[item.binding_band] ?? "text-ink"}>
-                            {formatMetric(item.binding_confidence)}
+                            {BAND_WORDS[item.binding_band] ?? item.binding_band}
+                          </span>{" "}
+                          <span className="tnum text-faint">
+                            ({formatMetric(item.binding_confidence)})
                           </span>
                         </span>
                       </div>
 
                       {/* The relative score, visibly labelled as relative. */}
                       <div className="mt-2 flex items-center gap-2">
-                        <div className="h-0.5 flex-1 overflow-hidden bg-ground">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-panel-hi">
                           <motion.div
-                            className="h-full bg-faint"
+                            className="h-full rounded-full bg-faint"
                             initial={{ width: 0 }}
                             animate={{ width: `${Number(item.score) * 100}%` }}
                             transition={{
@@ -318,8 +344,8 @@ export default function ResultsStep({
                             }}
                           />
                         </div>
-                        <span className="tnum text-[10px] text-faint">
-                          rel. {item.score}
+                        <span className="text-[12px] text-faint">
+                          <span className="tnum">{item.score}</span> within this batch
                         </span>
                       </div>
                     </button>
@@ -340,16 +366,16 @@ export default function ResultsStep({
                 className="space-y-4 xl:sticky xl:top-[65px] xl:self-start"
               >
                 <Panel
-                  title={`rank ${selected.rank} of ${ranking.total}`}
+                  title={`No. ${selected.rank} of ${ranking.total}`}
                   aside={
                     <span
-                      className={`text-[11px] ${BAND_TONE[selected.binding_band] ?? "text-muted"}`}
+                      className={`text-[13px] ${BAND_TONE[selected.binding_band] ?? "text-muted"}`}
                     >
-                      {selected.binding_band} band
+                      {BAND_WORDS[selected.binding_band] ?? selected.binding_band}
                     </span>
                   }
                 >
-                  <div className="relative aspect-[4/3]">
+                  <div className="specimen relative aspect-[4/3] overflow-hidden">
                     <StructureViewer
                       url={endpoints.structureUrl(projectId, selected.candidate.id)}
                       binderChains={selected.candidate.binder_chain_ids}
@@ -360,58 +386,60 @@ export default function ResultsStep({
 
                   <div className="divide-y divide-line p-4">
                     <Readout
-                      label="Predicted binding confidence"
+                      label={<Term k="bindingConfidence" />}
                       value={formatMetric(selected.binding_confidence)}
                       tone={BAND_TONE[selected.binding_band] ?? "text-ink"}
                     />
                     <Readout
-                      label="Interface confidence (ipTM)"
+                      label={<Term k="iptm" />}
                       value={formatMetric(selected.candidate.metrics.iptm)}
+                      title="Higher is better."
                     />
                     <Readout
-                      label="Interface error (PAE)"
+                      label={<Term k="pae" />}
                       value={formatMetric(selected.candidate.metrics.min_interaction_pae)}
-                      title="Lower is better for this metric."
+                      title="Lower is better for this one."
                     />
                     <Readout
-                      label="Fold confidence"
+                      label={<Term k="structureConfidence" />}
                       value={formatMetric(selected.candidate.metrics.structure_confidence)}
+                      title="Higher is better."
                     />
                     <Readout
-                      label="Relative score (this run only)"
+                      label={<Term k="relativeScore" />}
                       value={selected.score}
                       tone="text-muted"
                     />
                   </div>
                 </Panel>
 
-                <Panel title="How this score was reached">
+                <Panel title="Why it ranked where it did">
                   <ul className="divide-y divide-line">
                     {selected.contributions.map((c) => (
                       <li key={c.metric} className="px-4 py-2.5">
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-xs text-muted">
+                          <span className="text-[13px] text-muted">
                             {c.label}
                             {c.is_constant && (
-                              <span className="ml-2 text-[10px] text-faint">
-                                identical across the run
+                              <span className="ml-2 text-[12px] text-faint">
+                                the same for every design here, so it changed nothing
                               </span>
                             )}
                           </span>
-                          <span className="tnum text-xs text-ink">
+                          <span className="tnum text-[13px] text-ink">
                             {formatMetric(c.raw)}
                           </span>
                         </div>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-0.5 flex-1 overflow-hidden bg-ground">
+                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-panel-hi">
                             <motion.div
-                              className="h-full bg-signal/60"
+                              className="h-full rounded-full bg-signal/60"
                               initial={{ width: 0 }}
                               animate={{ width: `${Number(c.normalised) * 100}%` }}
                               transition={{ duration: DUR.reveal, ease: EASE_OUT }}
                             />
                           </div>
-                          <span className="tnum text-[10px] text-faint">
+                          <span className="tnum text-[12px] text-faint">
                             {c.normalised} × {c.weight} = {c.contribution}
                           </span>
                         </div>
@@ -419,31 +447,36 @@ export default function ResultsStep({
                     ))}
                   </ul>
                   {selected.weight_redistributed && (
-                    <p className="border-t border-line px-4 py-2.5 text-[11px] leading-relaxed text-muted">
-                      {selected.missing_metrics.join(", ")} was not reported, so its
-                      weight was shared across the metrics that were present rather
-                      than counted as zero.
+                    <p className="border-t border-line px-4 py-2.5 text-[13px] leading-relaxed text-muted">
+                      The model did not report{" "}
+                      {selected.missing_metrics
+                        .map((m) => METRIC_WORDS[m] ?? m)
+                        .join(", ")}
+                      , so that share of the score was spread across the
+                      measurements we did get, rather than counted as a zero it did
+                      not earn.
                     </p>
                   )}
                 </Panel>
 
-                <Panel title="In words">
-                  <p className="p-4 text-xs leading-relaxed text-muted">
+                <Panel title="In plain terms">
+                  <p className="p-4 text-sm leading-relaxed text-ink">
                     {selected.explanation}
                   </p>
                 </Panel>
 
-                <Panel title="Designed sequence">
+                <Panel title="The protein we designed">
                   <div className="p-4">
                     {selected.candidate.binder_chain_ids.length > 0 && (
-                      <p className="mb-2 text-[11px] text-faint">
-                        chain {selected.candidate.binder_chain_ids.join(", ")} ·{" "}
+                      <p className="mb-2 text-[13px] text-muted">
                         <span className="tnum">
-                          {selected.candidate.sequences[0]?.length ?? 0} aa
-                        </span>
+                          {selected.candidate.sequences[0]?.length ?? 0}
+                        </span>{" "}
+                        building blocks long. This is the recipe a lab would
+                        synthesise.
                       </p>
                     )}
-                    <p className="tnum max-h-40 overflow-y-auto break-all text-[11px] leading-relaxed text-binder">
+                    <p className="tnum max-h-40 overflow-y-auto break-all rounded-md border border-line bg-wash p-3 text-[13px] leading-relaxed text-ink">
                       {selected.candidate.sequences[0] ?? "—"}
                     </p>
                   </div>
@@ -455,15 +488,15 @@ export default function ResultsStep({
       )}
 
       {ranking && ranking.items.length === 0 && !loadingRanking && (
-        <Empty title="No candidates to rank">
+        <Empty title="Nothing here could be scored">
           {ranking.excluded.length > 0
             ? ranking.excluded[0].reason
-            : "This run produced no scoreable results."}
+            : "This run came back without anything we could measure."}
         </Empty>
       )}
 
       {ranking && (
-        <p className="max-w-3xl text-[11px] leading-relaxed text-faint">
+        <p className="max-w-3xl text-[13px] leading-relaxed text-muted">
           {ranking.caveat}
         </p>
       )}

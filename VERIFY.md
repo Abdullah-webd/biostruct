@@ -35,14 +35,17 @@ cd apps/web && npx next build && npx next start --port 3100
 ## Critical flows
 
 1. Register, land on projects, sign out, sign back in
-2. Create a project with an infection and a budget
-3. Search UniProt, add a target, see its structures and literature
-4. Choose an epitope in author numbering; the conversion and the selected
-   residues (`SKSE` for KPC-2) are shown before saving
-5. Estimate a run, confirm the exact price, submit
+2. Start the worked example in one click ("Walk me through this example"), or
+   fill the form in by hand
+3. Pick a resistance protein from the starting points, or search for another;
+   add it and see its structures and literature
+4. Step 2 pre-fills the attack site from the annotated active sites and checks
+   it on arrival: the conversion and the selected building blocks (`SKSE` for
+   KPC-2) are shown before anything is saved
+5. Check the price, confirm the exact figure, start the run
 6. Watch progress over SSE through to completion
-7. Read the ranking, with the absolute binding band and the explanation
-8. Open a candidate's structure in the viewer
+7. Read the ranking, with the real odds stated next to the rank
+8. Open a design's structure in the viewer
 
 ## Known non-issues
 
@@ -51,3 +54,6 @@ cd apps/web && npx next build && npx next start --port 3100
   drives the real UI from registration to a ranked result.
 - A test-mode Boltz key returns a 522-byte placeholder structure, so the viewer
   shows a stub rather than a fold. The UI labels this; it is not a defect.
+- `ui-walkthrough.mjs` must wait on the ranking panel heading, not on prose:
+  an earlier version matched the words "best first" in the step's own intro
+  copy and so reported success before the run had finished.
