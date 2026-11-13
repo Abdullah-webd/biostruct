@@ -40,12 +40,15 @@ HIGHER_IS_BETTER: dict[str, bool] = {
 RANKED_METRICS = tuple(HIGHER_IS_BETTER)
 
 # Plain-language descriptions, so a score can be explained rather than asserted.
+# What each measurement is called in the interface. The technical name is kept
+# in brackets, because someone who has to discuss a result with a structural
+# biologist still needs it — but it never leads.
 METRIC_LABELS: dict[str, str] = {
-    "binding_confidence": "binding confidence",
-    "iptm": "interface confidence (ipTM)",
-    "ipsae_min": "interface confidence (ipSAE)",
-    "min_interaction_pae": "interface error (PAE)",
-    "structure_confidence": "fold confidence",
+    "binding_confidence": "chance it sticks to the target",
+    "iptm": "how well the two fit together (ipTM)",
+    "ipsae_min": "how well the two fit together (ipSAE)",
+    "min_interaction_pae": "how certain that fit is (PAE)",
+    "structure_confidence": "how certain its shape is",
 }
 
 SCORE_PLACES = Decimal("0.0001")
@@ -234,24 +237,29 @@ class RankingResult:
     @property
     def absolute_assessment(self) -> str:
         if not self.ranked:
-            return "No candidates could be scored."
+            return "Nothing in this batch could be scored."
         best = self.best_binding_confidence
         if best is None:
             return (
-                "Binding confidence was not reported for this run, so candidates "
-                "are ordered on interface and fold confidence alone."
+                "The model did not report how likely these are to stick to the "
+                "target, so they are ordered on how well they fit together and "
+                "how certain their shapes are instead."
             )
         if self.nothing_predicted_to_bind:
             return (
-                f"No candidate in this run reaches a meaningful predicted binding "
-                f"probability; the highest is {best:.2e}. The ordering below shows "
-                "which to look at first, but on the model's own output none of them "
-                "is expected to bind. A real campaign generates thousands of designs "
-                "rather than tens."
+                f"None of these is expected to stick to the target. The best of "
+                f"them comes out at {best:.2e} — that is the model's own estimate, "
+                "and it is as close to zero as makes no difference. The list below "
+                "still puts them in order, but that order is between near-misses. "
+                "This is a normal outcome for a small batch: a serious attempt "
+                "designs thousands, not tens."
             )
         return (
-            f"The highest predicted binding confidence in this run is {best:.2e} "
-            f"({self.best_binding_band} band)."
+            # Not "about a {x}%": the article would be wrong whenever the
+            # figure starts with 8, 11 or 18.
+            f"The most promising design here comes out at {best:.0%}. That is the "
+            "model's own estimate of its chance of sticking to the target, not a "
+            "measurement — somebody still has to make it and test it."
         )
 
     @property
@@ -461,36 +469,36 @@ def explain(candidate: RankedCandidate, result: RankingResult) -> str:
     if candidate.binding_confidence is not None:
         if candidate.binding_band == NEGLIGIBLE_BAND:
             parts.append(
-                f"Predicted binding confidence is {candidate.binding_confidence:.2e}, "
-                "which is negligible: on the model's own output this design is not "
-                "expected to bind the target."
+                f"The model puts this one's chance of sticking to the target at "
+                f"{candidate.binding_confidence:.2e}, which is effectively nil. On "
+                "its own output, this design is not expected to work."
             )
         else:
             parts.append(
-                f"Predicted binding confidence is {candidate.binding_confidence:.4g} "
-                f"({candidate.binding_band} band)."
+                f"The model puts this one's chance of sticking to the target at "
+                f"{candidate.binding_confidence:.4g}."
             )
 
     parts.append(
-        f"It ranks {candidate.rank} of {result.count} in this run "
-        f"(relative score {candidate.score}, {candidate.percentile}th percentile). "
-        "That ordering is within this run only and is not a measure of quality."
+        f"It comes {candidate.rank} out of {result.count} in this batch "
+        f"(score {candidate.score}, ahead of {candidate.percentile}% of the rest). "
+        "That position is only against the others designed alongside it, so the "
+        "best of a poor batch still comes first."
     )
 
     strongest = candidate.strongest_metric
     if strongest is not None:
         parts.append(
-            f"Its strongest contribution is {strongest.label} at {strongest.raw:.4g}, "
-            f"which is {strongest.normalised} on a 0-1 scale relative to the other "
-            "candidates here."
+            f"What it has going for it most is {strongest.label}, at "
+            f"{strongest.raw:.4g} — {strongest.normalised} on a 0-to-1 scale "
+            "against the others here."
         )
     weakest = candidate.weakest_metric
     if weakest is not None and strongest is not None and weakest.metric != strongest.metric:
         direction = "lower" if weakest.higher_is_better else "higher"
         parts.append(
-            f"Its weakest is {weakest.label} at {weakest.raw:.4g} "
-            f"({weakest.normalised} normalised); {direction} values are worse for "
-            "this metric."
+            f"Its weak point is {weakest.label}, at {weakest.raw:.4g} "
+            f"({weakest.normalised} on the same scale); {direction} is worse here."
         )
 
     if candidate.missing_metrics:

@@ -276,10 +276,10 @@ class RankedCandidateList(BaseModel):
     """A plain statement of what the absolute numbers mean for this run,
     independent of the ordering."""
     caveat: str = (
-        "Scores are computational prioritisation from a predictive model, "
-        "relative to the other candidates in this run. They do not indicate that "
-        "any candidate binds its target or has any therapeutic effect. "
-        "Experimental validation is required."
+        "Everything here is a prediction, and the ordering is only against the "
+        "other designs in this batch. None of it shows that any of these proteins "
+        "actually sticks to the target, and none of it shows that any of them "
+        "would treat anybody. Somebody has to make them and test them."
     )
 
 
