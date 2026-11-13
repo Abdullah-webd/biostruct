@@ -494,10 +494,22 @@ class TestRankingEndpoint:
     async def test_the_caveat_is_always_returned(
         self, api: Api, stub_sources: StubSources, engine: FakeEngine
     ) -> None:
-        """No response may present scores without saying what they are not."""
+        """No response may present scores without saying what they are not.
+
+        This used to assert the literal phrase "therapeutic effect". That tied
+        the guarantee to one bit of jargon, and the jargon was later removed so
+        a non-specialist could read the caveat. The guarantee itself did not
+        change, so it is asserted directly instead: the caveat has to deny
+        binding, deny treatment, and say that somebody must test these. All
+        three, in whatever words.
+        """
         project_id, run_id = await self._run_with_candidates(api, engine)
         body = (await api.get(f"/projects/{project_id}/runs/{run_id}/ranking")).json()
-        assert "therapeutic effect" in body["caveat"]
+        caveat = body["caveat"].lower()
+        assert "sticks" in caveat or "binds" in caveat, "must deny binding"
+        assert "treat" in caveat or "therapeutic" in caveat, "must deny treatment"
+        assert "test" in caveat, "must require experimental validation"
+        assert "prediction" in caveat or "predictive" in caveat
         assert body["livemode"] is False
 
     async def test_changing_weights_reranks_without_recomputation(
