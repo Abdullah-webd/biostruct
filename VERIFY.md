@@ -21,7 +21,7 @@ cd apps/web && npx next build && npx next start --port 3100
 
 | What | Command |
 |---|---|
-| Backend tests | `make test` (382, needs Docker for a MongoDB replica set) |
+| Backend tests | `make test` (382). **Use this, not a host `pytest`.** |
 | Backend lint and types | `cd apps/api && .venv/bin/ruff check . && .venv/bin/mypy` |
 | Web types, lint, build | `cd apps/web && npx tsc --noEmit && npx eslint . && npx next build` |
 | Whole-site smoke | `node ~/.claude/skills/ship-verify/scripts/smoke.mjs http://localhost:3100 --out .verify` |
@@ -54,6 +54,11 @@ cd apps/web && npx next build && npx next start --port 3100
   drives the real UI from registration to a ranked result.
 - A test-mode Boltz key returns a 522-byte placeholder structure, so the viewer
   shows a stub rather than a fold. The UI labels this; it is not a defect.
+- A host-run `pytest` **skips around 200 integration tests** and still exits 0.
+  Colima keeps MongoDB's port inside its VM, so the suite cannot reach the
+  replica set and marks those tests skipped rather than failing. That hides
+  every endpoint and ranking test. `make test` runs them on the compose
+  network; it is the only backend result worth quoting.
 - `ui-walkthrough.mjs` must wait on the ranking panel heading, not on prose:
   an earlier version matched the words "best first" in the step's own intro
   copy and so reported success before the run had finished.
