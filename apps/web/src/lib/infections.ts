@@ -36,6 +36,15 @@ export type InfectionCase = {
   clinicalName: string;
   /** The UniProt search that finds the protein to attack. */
   proteinQuery: string;
+  /**
+   * The words a person actually uses when they do not know the clinical name:
+   * what they see, where on the body, what they would tell a nurse. Matched
+   * literally — no model, no inference, so the behaviour is predictable and
+   * can be read off this file.
+   */
+  symptoms: string[];
+  /** How the match is explained back to the user, in their words. */
+  symptomSummary: string;
   /** True only for the case this product has been run end to end. */
   worked?: boolean;
 };
@@ -52,6 +61,30 @@ export const INFECTIONS: InfectionCase[] = [
     enzyme: "KPC carbapenemase",
     clinicalName: "Carbapenem-resistant Klebsiella pneumoniae",
     proteinQuery: 'protein_name:"carbapenem-hydrolyzing beta-lactamase KPC"',
+    symptoms: [
+      "cough",
+      "coughing",
+      "chest",
+      "lung",
+      "lungs",
+      "pneumonia",
+      "breathing",
+      "short of breath",
+      "phlegm",
+      "sputum",
+      "fever",
+      "hospital",
+      "icu",
+      "intensive care",
+      "ventilator",
+      "catheter",
+      "sepsis",
+      "bloodstream",
+      "klebsiella",
+      "carbapenem",
+      "kpc",
+    ],
+    symptomSummary: "coughing, chest and lung infections, and infections caught in hospital",
     worked: true,
   },
   {
@@ -65,6 +98,29 @@ export const INFECTIONS: InfectionCase[] = [
     enzyme: "CTX-M beta-lactamase",
     clinicalName: "Extended-spectrum beta-lactamase producing Escherichia coli",
     proteinQuery: 'protein_name:"beta-lactamase CTX-M"',
+    symptoms: [
+      "urine",
+      "urinary",
+      "uti",
+      "bladder",
+      "peeing",
+      "weeing",
+      "urinating",
+      "burning",
+      "kidney",
+      "e. coli",
+      "e coli",
+      "coli",
+      "stomach",
+      "gut",
+      "diarrhoea",
+      "diarrhea",
+      "food",
+      "ctx",
+      "cephalosporin",
+    ],
+    symptomSummary:
+      "urine and bladder infections, and infections picked up outside hospital",
   },
   {
     id: "oxa-acinetobacter",
@@ -77,6 +133,26 @@ export const INFECTIONS: InfectionCase[] = [
     enzyme: "OXA-type carbapenemase",
     clinicalName: "Carbapenem-resistant Acinetobacter baumannii",
     proteinQuery: 'protein_name:"beta-lactamase OXA-48"',
+    symptoms: [
+      "wound",
+      "wounds",
+      "burn",
+      "burns",
+      "cut",
+      "injury",
+      "trauma",
+      "accident",
+      "surgery",
+      "surgical",
+      "skin",
+      "ulcer",
+      "not healing",
+      "pus",
+      "infected wound",
+      "acinetobacter",
+      "oxa",
+    ],
+    symptomSummary: "wounds, burns and surgical sites that will not heal",
   },
   {
     id: "ndm-enterobacterales",
@@ -89,8 +165,59 @@ export const INFECTIONS: InfectionCase[] = [
     enzyme: "NDM metallo-beta-lactamase",
     clinicalName: "NDM-producing Enterobacterales",
     proteinQuery: 'protein_name:"metallo-beta-lactamase NDM"',
+    symptoms: [
+      "spreading",
+      "spread",
+      "outbreak",
+      "ward",
+      "several patients",
+      "many patients",
+      "everything",
+      "nothing works",
+      "every antibiotic",
+      "multi",
+      "multidrug",
+      "resistant to everything",
+      "ndm",
+      "plasmid",
+      "gene",
+    ],
+    symptomSummary:
+      "an outbreak moving between patients, or a bug that resists everything tried",
   },
 ];
+
+/**
+ * Match what somebody typed against the catalogue.
+ *
+ * Deliberately a literal keyword match over the lists above, not a model: it
+ * is predictable, it costs nothing, it works offline, and anybody can read
+ * this file and know exactly why a suggestion appeared. Results are ordered by
+ * how many distinct words matched.
+ *
+ * This is emphatically not a diagnosis. It maps everyday words onto the four
+ * cases this pipeline can actually handle, and the UI says so.
+ */
+export function matchInfections(
+  text: string,
+): { infection: InfectionCase; matched: string[] }[] {
+  // Pad with spaces so a keyword can be matched at a word boundary without a
+  // regular expression per term.
+  const haystack = ` ${text.toLowerCase().replace(/[^a-z0-9.\s]/g, " ").replace(/\s+/g, " ")} `;
+  if (haystack.trim().length < 3) return [];
+
+  return INFECTIONS.map((infection) => {
+    const matched = infection.symptoms.filter((word) => {
+      // Whole words for short terms, so "cut" does not fire on "cutting" and
+      // "uti" does not fire on "routine".
+      if (!word.includes(" ") && word.length <= 4) return haystack.includes(` ${word} `);
+      return haystack.includes(word);
+    });
+    return { infection, matched };
+  })
+    .filter((r) => r.matched.length > 0)
+    .sort((a, b) => b.matched.length - a.matched.length);
+}
 
 export function infectionById(id: string | null): InfectionCase | undefined {
   if (!id) return undefined;

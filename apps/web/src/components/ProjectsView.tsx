@@ -7,7 +7,12 @@ import { useEffect, useState } from "react";
 import { ApiError, endpoints, formatMoney, type Project } from "@/lib/api";
 import { Button, Empty, Field, Notice, Panel, SkeletonRows } from "@/components/ui";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
-import { INFECTIONS, type InfectionCase, rememberInfection } from "@/lib/infections";
+import {
+  INFECTIONS,
+  type InfectionCase,
+  matchInfections,
+  rememberInfection,
+} from "@/lib/infections";
 
 /**
  * What a project costs by default. Designing one protein is about five cents,
@@ -27,6 +32,21 @@ export default function ProjectsView() {
   const [infection, setInfection] = useState("");
   const [pathogen, setPathogen] = useState("");
   const [budget, setBudget] = useState(DEFAULT_BUDGET);
+  const [describe, setDescribe] = useState("");
+
+  // Matched as you type. Cheap enough to do on every keystroke — it is a
+  // handful of string comparisons over four entries.
+  const asked = describe.trim().length >= 3;
+  const matches = asked ? matchInfections(describe) : [];
+  // Matches first, then the rest. Reordered rather than filtered: hiding the
+  // other three would strand anyone whose words matched the wrong case.
+  const shown =
+    asked && matches.length > 0
+      ? [
+          ...matches.map((m) => m.infection),
+          ...INFECTIONS.filter((i) => !matches.some((m) => m.infection.id === i.id)),
+        ]
+      : INFECTIONS;
 
   useEffect(() => {
     endpoints
@@ -135,8 +155,45 @@ export default function ProjectsView() {
             tool is built for.
           </p>
 
+          {/* For anyone who does not know the names. Plain words in, a
+              candidate out, with the reason shown. */}
+          <div className="mt-4 rounded-lg border border-line bg-wash p-4">
+            <label
+              htmlFor="describe"
+              className="block text-sm font-medium text-ink"
+            >
+              Do not know which one? Say what is happening instead.
+            </label>
+            <input
+              id="describe"
+              type="text"
+              value={describe}
+              onChange={(e) => setDescribe(e.target.value)}
+              placeholder="they keep coughing and the antibiotics are not helping"
+              className="mt-2 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink outline-none transition-colors duration-[var(--dur-ui)] placeholder:text-faint focus:border-signal"
+            />
+            {asked && matches.length > 0 && (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-muted">
+                <span className="text-ink">
+                  You mentioned {matches[0].matched.slice(0, 3).join(", ")}.
+                </span>{" "}
+                That fits {matches[0].infection.symptomSummary}, so the closest case
+                we can work on is shown first. This is not a diagnosis — plenty of
+                other bugs cause the same thing, and this tool only covers bacteria
+                that destroy antibiotics with an enzyme.
+              </p>
+            )}
+            {asked && matches.length === 0 && (
+              <p className="mt-2.5 text-[13px] leading-relaxed text-muted">
+                Nothing in those words matched one of the four. Try what you would
+                tell a nurse — where on the body, what it looks like — or just pick
+                from the list below.
+              </p>
+            )}
+          </div>
+
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-            {INFECTIONS.map((c, index) => (
+            {shown.map((c, index) => (
               <motion.li
                 key={c.id}
                 initial={{ opacity: 0, y: 8 }}
@@ -148,15 +205,21 @@ export default function ProjectsView() {
                   onClick={() => pick(c)}
                   disabled={busy !== null}
                   className={`flex h-full w-full flex-col rounded-lg border p-4 text-left transition-colors duration-[var(--dur-ui)] disabled:opacity-60 ${
-                    c.worked
+                    (asked && matches.length > 0 ? index === 0 : c.worked)
                       ? "border-signal bg-signal-dim hover:bg-signal-dim/70"
                       : "border-line bg-panel hover:border-signal hover:bg-signal-dim"
                   }`}
                 >
-                  {c.worked && (
+                  {asked && matches.length > 0 && index === 0 ? (
                     <span className="mb-1.5 text-[12px] font-medium text-signal">
-                      Start here — this is the one we have run end to end
+                      Closest to what you described
                     </span>
+                  ) : (
+                    c.worked && (
+                      <span className="mb-1.5 text-[12px] font-medium text-signal">
+                        Start here — this is the one we have run end to end
+                      </span>
+                    )
                   )}
                   <span className="text-sm font-medium leading-snug text-ink">
                     {c.headline}
@@ -202,6 +265,16 @@ export default function ProjectsView() {
           className="mb-8"
         >
           <Panel title="Describe your own infection">
+            {/* Said plainly, because the previous wording implied the text
+                box was understood by something. It is not: it is a label. */}
+            <div className="border-b border-line px-4 pt-4">
+              <Notice tone="caution" title="What this form does, and does not do">
+                These answers are a label for your own reference — nothing reads
+                them or works out which protein to attack. You will choose the
+                protein yourself on the next screen, by name. If you do not know
+                the name, go back and describe what is happening instead.
+              </Notice>
+            </div>
             <form
               method="post"
               action=""
@@ -225,7 +298,7 @@ export default function ProjectsView() {
                 value={infection}
                 onChange={(e) => setInfection(e.target.value)}
                 placeholder="Carbapenem-resistant Klebsiella pneumoniae"
-                hint="Describe it the way you would to a colleague. If you are not sure, go back and pick one of the four instead."
+                hint="Whatever you would call it. It is stored as written and shown back to you in your project list."
               />
               <Field
                 label="Which organism, if you know it?"
