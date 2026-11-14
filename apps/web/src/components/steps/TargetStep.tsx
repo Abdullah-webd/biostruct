@@ -10,7 +10,7 @@
  */
 
 import { motion } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -30,6 +30,7 @@ import {
   Term,
 } from "@/components/ui";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
+import { type InfectionCase, recallInfection } from "@/lib/infections";
 import { STEP_INTRO } from "@/lib/words";
 
 /**
@@ -99,22 +100,62 @@ export default function TargetStep({
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Resolved after mount rather than during render: sessionStorage does not
+  // exist on the server, and reading it inline would make the first client
+  // paint disagree with the server's.
+  const [chosen, setChosen] = useState<InfectionCase | undefined>(undefined);
 
-  async function run(q: string) {
-    setQuery(q);
-    setSearching(true);
-    setError("");
-    setResults(null);
-    try {
-      setResults(
-        await endpoints.searchTargets(projectId, { query: q, reviewed_only: true }),
-      );
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message_for_user : "The search did not work");
-    } finally {
-      setSearching(false);
-    }
-  }
+  const run = useCallback(
+    async (q: string) => {
+      // Yield before the first setState so this is safe to call straight out
+      // of an effect as well as out of a click.
+      await Promise.resolve();
+      setQuery(q);
+      setSearching(true);
+      setError("");
+      setResults(null);
+      try {
+        setResults(
+          await endpoints.searchTargets(projectId, { query: q, reviewed_only: true }),
+        );
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message_for_user : "The search did not work");
+      } finally {
+        setSearching(false);
+      }
+    },
+    [projectId],
+  );
+
+  /**
+   * If the user picked an infection on the projects page, the protein that
+   * causes it is already known, so run that search for them. They still choose
+   * from the results — this skips the query syntax, it does not pick for them.
+   *
+   * Only on arrival, and only when they have not already added a protein.
+   */
+  const begin = useCallback(
+    async (c: InfectionCase) => {
+      // Yield first, so nothing here lands synchronously inside the effect.
+      await Promise.resolve();
+      setChosen(c);
+      await run(c.proteinQuery);
+    },
+    [run],
+  );
+
+  const autoSearched = useRef(false);
+  useEffect(() => {
+    if (autoSearched.current) return;
+    if (targets.length > 0) return;
+    const c = recallInfection(projectId);
+    if (!c) return;
+    autoSearched.current = true;
+    // The rule cannot see the await above; this runs a tick later, not during
+    // the effect. Same deliberate pattern as the attack-site step.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void begin(c);
+  }, [projectId, targets.length, begin]);
 
   async function add(candidate: TargetCandidate) {
     setAdding(candidate.accession);
@@ -139,9 +180,21 @@ export default function TargetStep({
 
       {error && <Notice tone="danger" title={error} />}
 
+      {/* Why a search has already run. Nothing should appear on screen
+          without the user being told what caused it. */}
+      {chosen && (
+        <Notice tone="signal" title={`Looking up the ${chosen.enzyme} for you`}>
+          You chose <em>{chosen.organism}</em>. That is the enzyme letting it survive
+          the antibiotic, so it is what we attack. Pick one from the results below, or
+          search for something else.
+        </Notice>
+      )}
+
       {/* --- the plain path: pick a known resistance protein ------------- */}
       <div>
-        <h3 className="mb-3 text-sm font-medium text-ink">Common starting points</h3>
+        <h3 className="mb-3 text-sm font-medium text-ink">
+          {chosen ? "Or start from a different protein" : "Common starting points"}
+        </h3>
         <ul className="grid gap-3 sm:grid-cols-2">
           {PRESETS.map((p) => (
             <li key={p.query}>

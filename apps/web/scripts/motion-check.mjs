@@ -1,6 +1,9 @@
 import { chromium } from "playwright";
 
-const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3000";
+// Accept the URL as an argument as well as an env var. Taking only BASE_URL
+// meant `node motion-check.mjs <url>` silently checked port 3000 instead —
+// whatever happened to be running there — and reported that page's motion.
+const BASE = process.argv[2] ?? process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 await p.goto(BASE + "/", { waitUntil: "networkidle", timeout: 60000 });

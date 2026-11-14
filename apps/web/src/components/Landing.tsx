@@ -99,6 +99,11 @@ export default function Landing() {
 
       // The one set-piece: the numbering problem. It is the product's actual
       // differentiator and a genuinely surprising fact, so it earns a scrub.
+      //
+      // This line is hidden here rather than with a CSS class, so that it is
+      // readable when motion is reduced and when JS never runs at all. Hiding
+      // it in markup left it permanently invisible in both cases.
+      gsap.set("[data-num-converge]", { opacity: 0 });
       gsap
         .timeline({
           scrollTrigger: {
@@ -268,7 +273,7 @@ export default function Landing() {
               </div>
               <p
                 data-num-converge
-                className="mt-3 text-center text-[13px] text-muted opacity-0"
+                className="mt-3 text-center text-[13px] text-muted"
               >
                 Four different numbers, one spot on the enzyme.
               </p>

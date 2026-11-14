@@ -42,16 +42,20 @@ await page.click('button[type="submit"]');
 await page.waitForURL("**/projects", { timeout: 30000 });
 await shot("10-projects-empty", 1200);
 
-// --- create a project from the one-click example -----------------------
-await shot("11-example-offer");
-await click("Walk me through this example");
+// --- choose an infection from the catalogue ----------------------------
+// Nothing is typed here: the whole point of the catalogue is that a person
+// who does not know the clinical vocabulary can still start.
+await shot("11-infection-catalogue");
+await click("A hospital infection that our strongest antibiotics no longer cure");
 await page.waitForSelector("text=Which protein is making this infection resistant?", {
   timeout: 30000,
 });
 await shot("12-workflow-target", 1500);
 
-// --- pick the protein --------------------------------------------------
-await click("KPC carbapenemase");
+// --- the protein search should already have run by itself --------------
+await page.waitForSelector("text=Looking up the KPC carbapenemase for you", {
+  timeout: 30000,
+});
 await page.waitForSelector('button:has-text("Use this one")', { timeout: 90000 });
 await shot("13-target-results");
 await click("Use this one");

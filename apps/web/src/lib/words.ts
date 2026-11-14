@@ -96,7 +96,7 @@ export type TermKey = keyof typeof TERMS;
 /** One plain sentence per step, shown before anything else on that step. */
 export const STEP_INTRO = {
   target:
-    "First, pick the protein that is making this infection resistant to drugs. Search by name, or start from the worked example.",
+    "Bacteria beat an antibiotic by making a protein that destroys it. Pick that protein here — if you chose an infection, we have already looked up the usual culprit for you.",
   epitope:
     "Now choose which part of that protein to attack. The catalytic site — where it chews up the antibiotic — is usually the right answer, and it is pre-selected for you.",
   design:
