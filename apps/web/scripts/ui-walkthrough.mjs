@@ -47,9 +47,10 @@ await shot("10-projects-empty", 1200);
 // who does not know the clinical vocabulary can still start.
 await shot("11-infection-catalogue");
 await click("A hospital infection that our strongest antibiotics no longer cure");
-await page.waitForSelector("text=Which protein is making this infection resistant?", {
-  timeout: 30000,
-});
+await page.waitForSelector(
+  "text=Which of the bacterium's proteins is making it resistant?",
+  { timeout: 30000 },
+);
 await shot("12-workflow-target", 1500);
 
 // --- the protein search should already have run by itself --------------

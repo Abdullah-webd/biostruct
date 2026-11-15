@@ -10,7 +10,14 @@
  */
 
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   ApiError,
@@ -31,7 +38,8 @@ import {
 } from "@/components/ui";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
 import { type InfectionCase, recallInfection } from "@/lib/infections";
-import { STEP_INTRO } from "@/lib/words";
+import { isTooBroad, judgeTarget } from "@/lib/resistance";
+import { STEP_INTRO, TWO_PROTEINS } from "@/lib/words";
 
 /**
  * Starting points, by what the protein does rather than what it is called.
@@ -157,6 +165,23 @@ export default function TargetStep({
     void begin(c);
   }, [projectId, targets.length, begin]);
 
+  /**
+   * Results, judged and reordered so anything that actually looks like a
+   * resistance protein is at the top. Reordered rather than filtered — a
+   * keyword list has no authority to hide a specialist's correct answer.
+   */
+  const judged = useMemo(
+    () =>
+      (results?.items ?? [])
+        .map((candidate) => ({ candidate, judgement: judgeTarget(candidate) }))
+        .sort(
+          (a, b) =>
+            Number(b.judgement.looksRelevant) - Number(a.judgement.looksRelevant),
+        ),
+    [results],
+  );
+  const relevantCount = judged.filter((j) => j.judgement.looksRelevant).length;
+
   async function add(candidate: TargetCandidate) {
     setAdding(candidate.accession);
     setError("");
@@ -174,9 +199,31 @@ export default function TargetStep({
 
   return (
     <div className="space-y-6">
-      <StepHeader title="Which protein is making this infection resistant?">
+      <StepHeader title="Which of the bacterium's proteins is making it resistant?">
         {STEP_INTRO.target}
       </StepHeader>
+
+      {/* The app deals in two opposite kinds of protein, and conflating them
+          made this screen unreadable. State the contrast once, here, where
+          the confusion starts. */}
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-signal bg-signal-dim p-4">
+          <dt className="text-sm font-medium text-ink">
+            {TWO_PROTEINS.theirs.title} — you are choosing this now
+          </dt>
+          <dd className="mt-1.5 text-[13px] leading-relaxed text-muted">
+            {TWO_PROTEINS.theirs.body}
+          </dd>
+        </div>
+        <div className="rounded-lg border border-line bg-wash p-4">
+          <dt className="text-sm font-medium text-ink">
+            {TWO_PROTEINS.ours.title} — these come later
+          </dt>
+          <dd className="mt-1.5 text-[13px] leading-relaxed text-muted">
+            {TWO_PROTEINS.ours.body}
+          </dd>
+        </div>
+      </dl>
 
       {error && <Notice tone="danger" title={error} />}
 
@@ -251,9 +298,9 @@ export default function TargetStep({
       {results && (
         <Panel
           title={
-            results.items.length === 1
-              ? "1 protein found"
-              : `${results.items.length} proteins found`
+            results.items.length === 0
+              ? "Nothing found"
+              : `${results.items.length} found, ${relevantCount} of them look like resistance proteins`
           }
         >
           {results.degraded_sources.length > 0 && (
@@ -267,13 +314,37 @@ export default function TargetStep({
               </Notice>
             </div>
           )}
+          {/* Searching a word like "bacteria" matches entries that merely
+              mention it. Twenty-five unrelated hits look like a useful result
+              and are not one, so say so rather than let somebody pick row
+              three of the noise. */}
+          {results.items.length > 0 && relevantCount === 0 && (
+            <div className="border-b border-line p-3">
+              <Notice
+                tone="caution"
+                title="None of these look like resistance proteins"
+              >
+                {isTooBroad(results.query)
+                  ? `"${results.query}" matches any entry that happens to mention the word, which is why there are so many. It is the same as searching a library for "book".`
+                  : "These matched your words, but nothing in their names or descriptions says they defeat an antibiotic."}{" "}
+                Choosing one would still run — the machine cannot tell you are in
+                the wrong place — and the result would mean nothing. Try the name
+                of the enzyme itself, like <em>KPC</em> or <em>beta-lactamase</em>,
+                or use one of the starting points above.
+              </Notice>
+            </div>
+          )}
+
           {results.items.length === 0 ? (
             <Empty title="Nothing matched that">
-              Try fewer words, or one of the starting points above.
+              This is a direct lookup in UniProt, not a search engine — there is
+              no spellchecker and no &ldquo;did you mean&rdquo;, so one wrong
+              letter returns nothing. Check the spelling, try fewer words, or use
+              one of the starting points above.
             </Empty>
           ) : (
             <ul className="divide-y divide-line">
-              {results.items.map((candidate, index) => {
+              {judged.map(({ candidate, judgement }, index) => {
                 const already = targets.some((t) => t.accession === candidate.accession);
                 return (
                   <motion.li
@@ -310,9 +381,29 @@ export default function TargetStep({
                         {" · "}
                         <span className="tnum">{candidate.length}</span> building blocks long
                       </p>
+
+                      {/* A verdict on every row, so nobody has to already know
+                          what they are looking at. */}
+                      <p
+                        className={`mt-2 text-[12.5px] leading-relaxed ${
+                          judgement.looksRelevant ? "text-good" : "text-caution"
+                        }`}
+                      >
+                        {judgement.looksRelevant
+                          ? `Looks right — ${judgement.because}.`
+                          : "We cannot tell that this one causes antibiotic resistance. Only pick it if you know it does."}
+                      </p>
+                      {judgement.warnings.map((w) => (
+                        <p
+                          key={w}
+                          className="mt-1 text-[12.5px] leading-relaxed text-caution"
+                        >
+                          {w}
+                        </p>
+                      ))}
                     </div>
                     <Button
-                      variant={already ? "ghost" : "primary"}
+                      variant={already || !judgement.looksRelevant ? "ghost" : "primary"}
                       disabled={already || adding === candidate.accession}
                       onClick={() => void add(candidate)}
                     >
@@ -320,7 +411,9 @@ export default function TargetStep({
                         ? "Added"
                         : adding === candidate.accession
                           ? "Adding…"
-                          : "Use this one"}
+                          : judgement.looksRelevant
+                            ? "Use this one"
+                            : "Use it anyway"}
                     </Button>
                   </motion.li>
                 );

@@ -251,7 +251,7 @@ export default function ProjectsView() {
             disabled={busy !== null}
             className="mt-4 text-sm text-muted underline-offset-4 transition-colors duration-[var(--dur-ui)] hover:text-ink hover:underline"
           >
-            None of these — I know the infection I want to work on
+            None of these — I will find the protein myself (for specialists)
           </button>
         </section>
       )}
@@ -268,11 +268,16 @@ export default function ProjectsView() {
             {/* Said plainly, because the previous wording implied the text
                 box was understood by something. It is not: it is a label. */}
             <div className="border-b border-line px-4 pt-4">
-              <Notice tone="caution" title="What this form does, and does not do">
-                These answers are a label for your own reference — nothing reads
-                them or works out which protein to attack. You will choose the
-                protein yourself on the next screen, by name. If you do not know
-                the name, go back and describe what is happening instead.
+              <Notice
+                tone="caution"
+                title="This form will not find a protein for you"
+              >
+                Every answer here is a label for your own reference. Nothing reads
+                them, and none of them affects what happens next — so write them
+                however you like, in plain words. The one thing that does something
+                is the spending limit. You will still have to find the protein
+                yourself on the next screen, by name. If that is not what you
+                wanted, go back and describe what is happening instead.
               </Notice>
             </div>
             <form
@@ -289,23 +294,26 @@ export default function ProjectsView() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Resistant Klebsiella on the ICU ward"
-                hint="Any name that will mean something to you in a week."
+                placeholder="The coughing one on ward 3"
+                hint="Your own label. Any words that will mean something to you in a week."
               />
               <Field
                 label="What infection are you working on?"
                 required
                 value={infection}
                 onChange={(e) => setInfection(e.target.value)}
-                placeholder="Carbapenem-resistant Klebsiella pneumoniae"
-                hint="Whatever you would call it. It is stored as written and shown back to you in your project list."
+                // A placeholder teaches people the expected format. The old one
+                // was the clinical phrase, so the field read as though it
+                // demanded one. It does not: it is free text.
+                placeholder="a chest infection the usual antibiotics are not fixing"
+                hint="Plain words are fine — no medical name needed. It is stored exactly as you write it and shown back to you in your project list."
               />
               <Field
                 label="Which organism, if you know it?"
                 value={pathogen}
                 onChange={(e) => setPathogen(e.target.value)}
                 placeholder="Klebsiella pneumoniae"
-                hint="Optional. Leave it blank if you do not know."
+                hint="Optional, and another label. Leave it blank — most people should."
               />
               <Field
                 label="Most you are willing to spend on this project"

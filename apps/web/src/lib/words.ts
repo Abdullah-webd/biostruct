@@ -96,7 +96,7 @@ export type TermKey = keyof typeof TERMS;
 /** One plain sentence per step, shown before anything else on that step. */
 export const STEP_INTRO = {
   target:
-    "Bacteria beat an antibiotic by making a protein that destroys it. Pick that protein here — if you chose an infection, we have already looked up the usual culprit for you.",
+    "Bacteria beat an antibiotic by making an enzyme that destroys it. Pick that enzyme here — if you chose an infection, we have already looked up the usual culprit for you.",
   epitope:
     "Now choose which part of that protein to attack. The catalytic site — where it chews up the antibiotic — is usually the right answer, and it is pre-selected for you.",
   design:
@@ -105,13 +105,37 @@ export const STEP_INTRO = {
     "Here is what came back, best first. Read the predicted chance it sticks alongside the rank: a batch where nothing worked still produces a ranked list.",
 } as const;
 
-/** Step names, as a person would say them. */
+/**
+ * Step names, as a person would say them.
+ *
+ * "Their protein" and "Our designs" rather than "Protein" and "Design",
+ * because the app deals in two opposite kinds of protein and calling both of
+ * them "protein" was the single most confusing thing in it. One is the
+ * bacterium's, there is exactly one of it, and you pick it. The others are
+ * ours, there are ten of them, they did not exist an hour ago, and they are
+ * what gets ranked. The step names now carry that distinction on every screen.
+ */
 export const STEPS = [
-  { key: "target", label: "Protein" },
-  { key: "epitope", label: "Site" },
-  { key: "design", label: "Design" },
+  { key: "target", label: "Their protein" },
+  { key: "epitope", label: "Where to hit it" },
+  { key: "design", label: "Our designs" },
   { key: "results", label: "Results" },
 ] as const;
+
+/**
+ * The two-kinds-of-protein distinction, in one place, so the contrast is
+ * worded identically wherever it is shown.
+ */
+export const TWO_PROTEINS = {
+  theirs: {
+    title: "Their protein",
+    body: "The bacterium's own enzyme — the thing destroying the antibiotic. There is one of it, it already exists, and you pick it. This is that step.",
+  },
+  ours: {
+    title: "Our designs",
+    body: "Brand-new proteins the model invents to jam that enzyme. There are ten or more, none of them existed before, and nobody knows which is any good — which is why they get ranked at the end.",
+  },
+} as const;
 
 /** Plain words for each binding band, as a phrase that completes a sentence. */
 export const BAND_WORDS: Record<string, string> = {
