@@ -1,4 +1,4 @@
-# Research — Biostruct v2
+# Research — Antidote
 
 Date: 2026-11-16. Everything below was checked against primary sources in this
 session. Where a source disagreed with another, both are recorded.

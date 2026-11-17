@@ -1,8 +1,9 @@
-# Dawa — Architecture
+# Antidote — Architecture
 
-> Status: Draft v1 · awaiting approval · 2026-11-17
-> Working name: **Dawa** (Swahili: *medicine*). Veto it and I will rename
-> everything in one pass — the name appears in config, not in logic.
+> Name: **Antidote** — "AI drug discovery for the infections that have run out
+> of drugs. Built for Africa." Three unrelated health-tech firms use the bare
+> name; none does drug discovery. Register as **Antidote AI** if this ships as
+> a company. The name lives in config, not logic.
 > Supersedes the Biostruct v1 design. Research: [docs/research.md](docs/research.md).
 
 ---
