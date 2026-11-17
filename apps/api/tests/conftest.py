@@ -66,11 +66,8 @@ _COLLECTIONS = (
     "design_runs",
     "candidates",
     "source_cache",
-    # M6. Note: "sessions" above is auth sessions, a different thing entirely.
-    "research_sessions",
-    "messages",
-    "artifacts",
-    "agent_runs",
+    "lab_predictions",
+    "lab_screens",
 )
 
 

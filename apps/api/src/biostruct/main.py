@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -13,21 +12,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from biostruct import __version__, errors
-from biostruct.agent.llm import OpenAIClient
-from biostruct.agent.runner import AgentRunner
-from biostruct.agent.tools.science import build_registry
 from biostruct.config import Env, Settings, get_settings
 from biostruct.db import database, ensure_indexes, startup_checks
 from biostruct.engines import BoltzHostedEngine
 from biostruct.jobs import Reconciler
-from biostruct.repositories.conversations import ConversationRepository
-from biostruct.routers import agent, auth, health, projects, runs, targets
+from biostruct.lab import Lab
+from biostruct.routers import auth, health, projects, runs, targets
+from biostruct.routers import lab as lab_router
 from biostruct.sources import ScienceSources
 from biostruct.sources.chembl import ChemblClient
-from biostruct.sources.europepmc import EuropePMCClient
 from biostruct.sources.http import CachedHTTPClient
 from biostruct.storage import build_storage
-from biostruct.voice import SpitchClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,29 +52,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ncbi_email=cfg.ncbi_email,
             ncbi_api_key=cfg.ncbi_api_key.get_secret_value(),
         )
-        # The two sources the agent reaches for that the v1 panels do not use.
-        # Separate clients because each gets its own rate-limit bucket and TTL:
-        # Europe PMC answers change weekly, ChEMBL releases are months apart.
-        app.state.europepmc = EuropePMCClient(
-            CachedHTTPClient(source="europepmc", db=db, rate_per_second=3.0, burst=3)
-        )
-        app.state.chembl = ChemblClient(
-            CachedHTTPClient(
-                source="chembl",
-                db=db,
-                rate_per_second=2.0,
-                burst=2,
-                ttl=timedelta(days=7),
-                timeout=30.0,
-            )
-        )
-        app.state.llm = OpenAIClient(
-            api_key=cfg.openai_api_key.get_secret_value(),
-            model=cfg.agent_model,
-            effort=cfg.agent_reasoning_effort,
-        )
-        app.state.tool_registry = build_registry()
-        app.state.voice = SpitchClient(api_key=cfg.spitch_api_key.get_secret_value())
         app.state.storage = build_storage(
             backend=cfg.storage_backend,
             local_path=cfg.storage_local_path,
@@ -95,35 +67,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # The reconciler runs in-process here for convenience. In production it
         # is a separate Railway service, so that a web deploy cannot interrupt a
         # harvest mid-flight (ARCHITECTURE.md §14).
-        # After the engine and storage, both of which it uses: a fold's CIF is
-        # pulled into our own storage before Boltz's presigned link expires.
-        app.state.runner = AgentRunner(
+        app.state.lab = Lab(
             db=db,
             engine=app.state.engine,
-            conversations=ConversationRepository(db, storage=app.state.storage),
-            sources=app.state.sources,
-            chembl=app.state.chembl,
             storage=app.state.storage,
+            chembl=ChemblClient(
+                CachedHTTPClient(source="chembl", db=db, rate_per_second=2.0, timeout=30.0)
+            ),
         )
         app.state.reconciler = Reconciler(db=db, engine=app.state.engine, storage=app.state.storage)
         if cfg.run_reconciler:
             app.state.reconciler.start()
         log.info(
-            "started env=%s boltz_key_mode=%s storage=%s agent_model=%s agent=%s voice=%s",
+            "started env=%s boltz_key_mode=%s storage=%s",
             cfg.env.value,
             cfg.boltz_key_mode(),
             cfg.storage_backend,
-            cfg.agent_model,
-            "ready" if app.state.llm.is_configured else "DISABLED (no OPENAI_API_KEY)",
-            "ready" if app.state.voice.is_configured else "off",
         )
         try:
             yield
         finally:
             await app.state.reconciler.stop()
-            await app.state.runner.shutdown()
-            await app.state.llm.aclose()
-            await app.state.voice.aclose()
+            await app.state.lab.shutdown()
             await app.state.engine.aclose()
             await app.state.sources.aclose()
             await database.close()
@@ -167,7 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router, prefix=API_PREFIX)
     app.include_router(targets.router, prefix=API_PREFIX)
     app.include_router(runs.router, prefix=API_PREFIX)
-    app.include_router(agent.router, prefix=API_PREFIX)
+    app.include_router(lab_router.router, prefix=API_PREFIX)
 
     return app
 

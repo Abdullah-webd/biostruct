@@ -50,18 +50,18 @@ const LANCET =
 const CAPABILITIES = [
   {
     n: "01",
-    t: "Ask in your own words",
-    d: "Describe the infection the way you would to a colleague: the organism, the antibiotic that stopped working, what you are seeing on the ward. Type it, or say it in Yorùbá, Hausa, Igbo, Amharic or Pidgin. You never need to know a protein identifier to begin.",
+    t: "Paste the sequence",
+    d: "The amino acids of the enzyme your isolate actually makes — straight out of your sequencing output, FASTA header and line breaks and all. No protein identifiers to look up, no file formats to convert.",
   },
   {
     n: "02",
-    t: "Get the enzyme, with receipts",
-    d: "Antidote finds the protein behind the resistance and tells you what the literature says about it. Every claim carries a citation you can open — and a reference it cannot verify is removed before you see it, with the claim flagged, rather than left to look authoritative.",
+    t: "See the structure",
+    d: "A model predicts how that chain folds in three dimensions, and you can turn it on screen. This is the mutant you have, not a textbook reference — which is the point, because a resistant isolate's enzyme is rarely the one in the database.",
   },
   {
     n: "03",
-    t: "Fold it and find what blocks it",
-    d: "Predict the 3D structure of the enzyme your isolate actually has — mutations and all — then screen or invent molecules against its active site. Results come back ranked, with a known inhibitor included so you can tell whether the run worked at all.",
+    t: "Get ten molecules to test",
+    d: "A second model docks candidate molecules into that structure and ranks them. A compound already known to inhibit this class of enzyme goes in with them, so you can tell at a glance whether the run worked. Download the shortlist and take it to the bench.",
   },
 ];
 
@@ -207,7 +207,7 @@ export default function Landing() {
               <Button variant="ghost">Sign in</Button>
             </Link>
             <Link href="/register">
-              <Button variant="primary">Start research</Button>
+              <Button variant="primary">Fold a protein</Button>
             </Link>
           </div>
         </div>
@@ -221,30 +221,29 @@ export default function Landing() {
               data-split
               className="display text-[clamp(2.1rem,4.4vw,3.6rem)] leading-[1.04]"
             >
-              The antibiotic stopped working. Find out what is destroying it.
+Paste a sequence. Get the structure. Get ten molecules to test.
             </h1>
             <p
               data-sub
               className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted"
             >
-              Antidote is a research agent for drug-resistant infection. Describe
-              what you are seeing — in English, Yorùbá, Hausa, Igbo, Amharic or
-              Pidgin — and it finds the enzyme behind the resistance, backs every
-              claim with a citation you can open, predicts the enzyme&rsquo;s 3D
-              structure, and ranks molecules that could block it.
+              Antidote does the two steps of drug discovery a computer can
+              actually do. Paste the amino-acid sequence of the enzyme making an
+              infection drug-resistant; it predicts the 3D structure, then ranks
+              molecules that could jam it — a shortlist for your laboratory to
+              test.
             </p>
             <div data-cta className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/register">
-                <Button variant="primary">Start research</Button>
+                <Button variant="primary">Fold a protein</Button>
               </Link>
               <Link href="/login">
                 <Button>Sign in</Button>
               </Link>
             </div>
             <p className="mt-5 max-w-xl text-[13px] leading-relaxed text-faint">
-              Built for the two steps a computer can actually do: turning a
-              sequence into a structure, and a structure into candidate
-              molecules. The lab work is still yours.
+              Two steps, two buttons. Everything after the shortlist is a bench,
+              and that part is still yours.
             </p>
           </div>
 
@@ -366,7 +365,7 @@ export default function Landing() {
         <section className="border-t border-line">
           <div className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
             <h2 className="display mb-12 max-w-2xl text-[clamp(1.7rem,3.2vw,2.6rem)] leading-tight">
-              Three things, and nothing it cannot do.
+              The whole thing, in three steps.
             </h2>
             <ol data-capabilities className="grid gap-10 md:grid-cols-3 md:gap-8">
               {CAPABILITIES.map((step) => (
@@ -393,11 +392,10 @@ export default function Landing() {
               </h2>
               <div className="flex flex-col gap-4 text-[15px] leading-relaxed text-muted">
                 <p>
-                  Antidote does not discover drugs. It does the two steps a
-                  computer can do — sequence to structure, structure to candidate
-                  molecules — and hands you a ranked shortlist for a laboratory
-                  to test. Everything after that is a bench, an animal model and
-                  a trial.
+                  Antidote does not discover drugs. It does two steps — sequence
+                  to structure, structure to candidate molecules — and hands you
+                  a ranked shortlist. Everything after that is a bench, an animal
+                  model and a trial.
                 </p>
                 <p>
                   Nothing here predicts toxicity or safety. No free tool does, and
@@ -405,10 +403,11 @@ export default function Landing() {
                   thing this product could say.
                 </p>
                 <p className="text-ink">
-                  Every molecule it ranks is a hypothesis. Every citation it gives
-                  you is one it checked against the source while you waited — and
-                  when it could not, it removes the reference and tells you which
-                  sentence is now unsupported.
+                  Every molecule it ranks is a hypothesis. That is why a known
+                  inhibitor rides along in every screen: if it does not come out
+                  near the top, the ranking is telling you nothing, and Antidote
+                  says so instead of handing you ten numbers that look like
+                  findings.
                 </p>
               </div>
             </div>
@@ -422,12 +421,12 @@ export default function Landing() {
               Start with the infection in front of you.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-              No protein identifiers, no file formats, no queue. Describe what
-              you are seeing and go from there.
+              Paste a sequence and watch it fold. No identifiers to look up, no
+              file formats, no queue.
             </p>
             <div className="mt-8 flex justify-center">
               <Link href="/register">
-                <Button variant="primary">Start research</Button>
+                <Button variant="primary">Fold a protein</Button>
               </Link>
             </div>
           </div>

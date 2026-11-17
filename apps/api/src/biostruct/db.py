@@ -130,66 +130,18 @@ async def ensure_indexes(db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         [("expires_at", ASCENDING)], expireAfterSeconds=0, name="source_cache_ttl"
     )
 
-    # --- The conversation model (M6) ---
-    #
-    # Note the collection name. ``sessions`` above is *authentication* sessions,
-    # with a TTL index that deletes them; a research session is a conversation
-    # that must survive for months. Two concepts, one word, one of which expires
-    # itself: keeping them in separate collections is deliberate.
-    #
-    # Sorted by last activity, not creation: a researcher coming back wants the
-    # conversation they were in, which is rarely the newest one.
-    await db.research_sessions.create_index(
-        [("user_id", ASCENDING), ("last_message_at", DESCENDING), ("created_at", DESCENDING)],
-        name="research_sessions_user_activity",
+    # The product's two collections: a folded protein, and molecules ranked
+    # against one. Both are listed newest first for one researcher.
+    await db.lab_predictions.create_index(
+        [("user_id", ASCENDING), ("created_at", DESCENDING)], name="lab_predictions_user"
     )
-    await db.research_sessions.create_index(
-        [("user_id", ASCENDING), ("status", ASCENDING)], name="research_sessions_user_status"
+    await db.lab_screens.create_index(
+        [("prediction_id", ASCENDING), ("created_at", DESCENDING)],
+        name="lab_screens_prediction",
     )
-    # Finds work left behind by an interrupted migration.
-    await db.research_sessions.create_index(
-        [("migrated_from", ASCENDING)],
-        name="research_sessions_migrated",
-        partialFilterExpression={"migrated_from": "project"},
+    await db.lab_screens.create_index(
+        [("user_id", ASCENDING), ("created_at", DESCENDING)], name="lab_screens_user"
     )
-
-    # The thread read: every message of one session, in order. Unique, which is
-    # the point — two messages must never share a position in a thread, so a
-    # concurrency bug in sequence allocation fails loudly at write time instead
-    # of silently reordering someone's research. One index serves both the read
-    # and the constraint; a second with the same key pattern would be rejected.
-    await db.messages.create_index(
-        [("session_id", ASCENDING), ("seq", ASCENDING)],
-        unique=True,
-        name="messages_session_seq_unique",
-    )
-    await db.messages.create_index(
-        [("user_id", ASCENDING), ("created_at", DESCENDING)], name="messages_user_created"
-    )
-
-    # Ordered by the allocated sequence, not the clock: several artifacts from
-    # one turn share a millisecond, and the canvas must not reorder itself
-    # between reads.
-    await db.artifacts.create_index(
-        [("session_id", ASCENDING), ("seq", DESCENDING)], name="artifacts_session_seq"
-    )
-    # The canvas opens an artifact from a finished run.
-    await db.artifacts.create_index(
-        [("run_id", ASCENDING)],
-        name="artifacts_run",
-        partialFilterExpression={"run_id": {"$type": "string"}},
-    )
-
-    # The paid work an agent session has started.
-    await db.agent_runs.create_index(
-        [("session_id", ASCENDING), ("created_at", ASCENDING)], name="agent_runs_session"
-    )
-    # Finds work left running when the process died, so it can be reported as
-    # interrupted rather than spinning forever in the interface.
-    await db.agent_runs.create_index([("state", ASCENDING)], name="agent_runs_state")
-
-    # Indexes for collections that arrive in later milestones are created with
-    # those milestones, not pre-emptively here.
 
 
 async def startup_checks(db: AsyncIOMotorDatabase[dict[str, Any]], *, strict: bool) -> None:

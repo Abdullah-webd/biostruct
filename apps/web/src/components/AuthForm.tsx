@@ -32,7 +32,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       } else {
         await endpoints.login({ email, password });
       }
-      router.push("/sessions");
+      router.push("/lab");
     } catch (e) {
       if (e instanceof ApiError) {
         // The API's stable codes let us put the message on the right field

@@ -22,8 +22,10 @@ const config: NextConfig = {
     // surface. Anyone with it open in a tab or saved as a bookmark should
     // land on the research they came for, not on a 404.
     return [
-      { source: "/projects", destination: "/sessions", permanent: false },
-      { source: "/projects/:path*", destination: "/sessions", permanent: false },
+      { source: "/projects", destination: "/lab", permanent: false },
+      { source: "/projects/:path*", destination: "/lab", permanent: false },
+      { source: "/sessions", destination: "/lab", permanent: false },
+      { source: "/sessions/:path*", destination: "/lab", permanent: false },
     ];
   },
 };
