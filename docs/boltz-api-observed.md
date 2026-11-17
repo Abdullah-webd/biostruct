@@ -250,3 +250,126 @@ python scripts/verify_boltz.py --allow-live # only when billing is intended
 The script checks identity, cost arithmetic, submission, polling to a terminal
 state, full harvest with pagination, and artifact download. Re-run it after any
 `boltz-api` bump or if contract tests start failing.
+
+---
+
+# Part 2 — the v2 endpoints, observed 2026-11-17
+
+Captured with a test-mode workspace key against the live API, by running a real
+`structure-and-binding` prediction and a real 3-molecule `library-screen`.
+Base `https://api.boltz.bio`, prefix `/compute/v1`, header `x-api-key`.
+
+## Prices, which the docs do not publish
+
+`estimate-cost` is the only published price source. Observed:
+
+| Application | `cost_per_unit_usd` | Unit |
+|---|---|---|
+| `structure_and_binding` | **$0.0250** | sample |
+| `small_molecule_library_screen` | **$0.0250** | molecule |
+
+So a 250-molecule screen is **$6.25** and a single fold is **2.5 cents**. Every
+estimate carries a disclaimer that billing is actual token counts at run time,
+and that large library-screen estimates are *extrapolated from a sample*.
+
+## `POST /predictions/structure-and-binding`
+
+Request is wrapped: `{"input": {"entities": [...], "binding": {...}}, "model": "boltz-2.1"}`.
+Job ids are prefixed `sab_pred_`. Response carries `model: "boltz-2.1"`,
+`version: "v2026-03-01"`, and `expires_at` seven days out.
+
+Output shape:
+
+```
+output.best_sample.metrics   structure_confidence, ptm, iptm, ligand_iptm,
+                             protein_iptm, complex_plddt, complex_iplddt,
+                             complex_pde, complex_ipde
+output.best_sample.structure {url, url_expires_at}   # ~30 min presigned
+output.all_sample_results[]  same shape, one per num_samples
+output.archive               {url, url_expires_at}
+```
+
+### No affinity field is returned
+
+Submitted with `binding: {"type": "ligand_protein_binding", "binder_chain_id": "B"}`
+and the response contained **zero occurrences of the string `affinity`**. There
+is no `affinity_pred_value` and no binary binding probability — only the
+confidence metrics above.
+
+Unknown whether live mode differs. **Until a live run shows otherwise, the
+product must not promise a predicted affinity from this endpoint.** For hit
+discovery use `library-screen`, whose `binding_confidence` the docs call the
+"primary metric for hit discovery".
+
+### `protein_protein_binding` is accepted
+
+`estimate-cost` returned 200 for
+`{"type": "protein_protein_binding", "binder_chain_ids": ["B"]}`, contradicting
+the open-source docs' statement that protein–protein affinity is unsupported.
+Accepted at submission is not the same as *returns a useful number*; unresolved
+until a live run.
+
+## `POST /small-molecule/library-screen`
+
+**The body is flat. There is no `input` wrapper and no `model` field.**
+
+```json
+{
+  "target": {"entities": [{"type": "protein", "chain_ids": ["A"], "value": "<sequence>"}]},
+  "molecules": [{"smiles": "<SMILES>", "id": "<your id>"}],
+  "molecule_filters": {"boltz_smarts_catalog_filter_level": "recommended"},
+  "idempotency_key": "..."
+}
+```
+
+Optional on `target`: `pocket_residues` (map chain → residue numbers; **omitted
+means the model auto-detects the pocket**), `constraints`, `reference_ligands`,
+`bonds`.
+
+### The validator lies when you send an unsupported property
+
+Sending `"model": "boltz-2.1"` produced:
+
+> `request body contains an unsupported property 'model'. 1 other field needs
+> attention.` … `target_profile: is required`
+
+**There is no `target_profile` field.** The request validator is union-based and
+reports failures from a different branch, so a bogus required-field name appears
+whenever any property is unsupported. Cost us several probe rounds. **Trust the
+"unsupported property" half of the message and ignore the invented requirement.**
+
+### Job and results
+
+Job ids are prefixed `sm_scr_`; `pipeline: "boltzmol"`, `pipeline_version: "1.0"`
+(`engine` / `engine_version` are deprecated). Progress:
+
+```json
+{"total_molecules_to_screen": 3, "num_molecules_screened": 3,
+ "num_molecules_failed": 0, "latest_result_id": "..."}
+```
+
+`GET /{id}/results` pages with `after_id` / `before_id` / `ids` / `limit`
+(1–1000, default 100) and returns `data`, `first_id`, `last_id`, `has_more`.
+Each result: `smiles`, `external_id`, `metrics` (**`binding_confidence`** — the
+primary hit metric — plus `optimization_score`, `structure_confidence`, `iptm`,
+`ptm`, `complex_plddt`, `complex_iplddt`), **`adme` inline**
+(`lipophilicity`, `permeability`, `solubility`), `artifacts.structure`,
+`artifacts.ligand_structure`, `artifacts.archive`, and `warnings[]`.
+
+ADME comes back **with the screen**, so a separate `/predictions/adme` call is
+only needed for molecules we are not screening.
+
+### Test mode discards the ids you send
+
+Molecules submitted as `avibactam`, `penicillin-g`, `ethanol-decoy` came back
+with `external_id` of `mol_0`, `mol_1`, `mol_2`, and metrics that are plainly
+synthetic — the ethanol decoy outscored avibactam.
+
+Two consequences:
+
+1. **Results cannot be joined back to our library by `external_id` in test
+   mode.** Join by array position for test runs, by `external_id` in live mode,
+   and assert which mode is in play rather than assuming.
+2. **The positive-control eval (avibactam must rank highly against KPC) cannot
+   run in test mode.** It must be a live-mode test, run deliberately and
+   cheaply — three molecules is 7.5 cents.

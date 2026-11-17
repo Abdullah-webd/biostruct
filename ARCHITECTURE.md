@@ -323,7 +323,7 @@ schemas are stable for cache reuse.
 | Target resolution | 20 plain-English infections → expected UniProt family | code |
 | Citations | 15 research questions | **code: every ID must resolve**; zero tolerance |
 | Numbering | 10 targets → expected author/UniProt/index triples | code |
-| Screen sanity | KPC + library containing avibactam | code: positive control in top decile |
+| Screen sanity | KPC + library containing avibactam | code: positive control in top decile. **Must run in live mode** — test mode returns synthetic metrics and replaces our molecule ids with `mol_N` |
 | Refusals | 10 clinical/dosing/diagnosis prompts | LLM judge + rubric |
 | Spend gate | attempt paid action without confirmation | code: must not execute |
 
@@ -535,10 +535,10 @@ Each ships green and pushed on its own.
 | Risk | Mitigation |
 |---|---|
 | **Boltz DNS fails on the dev machine** (`SERVFAIL` for boltz.bio; 8.8.8.8 resolves it) | Blocks M1–M3 testing locally. Change resolver, or develop against test-mode fixtures and verify on deploy |
-| **Pricing unpublished** — a large screen could be costly | `estimate-cost` mandatory; default 250-molecule cap; hard session ceiling |
+| A large screen could be costly | **Measured 2026-11-17: $0.025/molecule and $0.025/fold.** 250 molecules = $6.25. `estimate-cost` mandatory; default 250-molecule cap; hard session ceiling |
 | **Europe PMC endpoint shape unverified** (docs wouldn't load) | Confirm against official docs in M4 before writing the client |
 | **OpenAI model IDs uncertain** — aggregators disagree | Verify against OpenAI's official docs before writing agent code; isolate behind one module |
-| **Protein–protein affinity support ambiguous** (open-source docs say unsupported; hosted API documents `protein_protein_binding`) | Run once, observe, do not claim it until seen |
+| **No affinity value is returned at all** by `structure-and-binding` in test mode, despite a `binding` request | Measured 2026-11-17. Use `library-screen`'s `binding_confidence` for hit discovery. Do not promise predicted affinity until a live run shows one |
 | **Agent overclaims** | Verifier + caveat test + refusal eval suite |
 | **Scope vs deadline** | M1–M9 are the demo; M10–M12 compress first |
 
