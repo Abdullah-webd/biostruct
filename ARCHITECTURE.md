@@ -1,208 +1,177 @@
-# Biostruct — AI-Powered Therapeutic Protein Design Platform
+# Dawa — Architecture
 
-> **Status: v1 · APPROVED 2026-11-11 · build in progress**
->
-> Approved 2026-11-11. Name: **Biostruct** · repo **public** (MIT) · deployment **Railway**.
-> Changes from here on are recorded in the decisions log (§17), not by editing history.
-
-Every technical claim here traces to [`docs/research.md`](docs/research.md). The Boltz API details
-were verified by installing `boltz-api==0.50.0` and reading its generated types, because Boltz
-publishes no API reference.
+> Status: Draft v1 · awaiting approval · 2026-11-17
+> Working name: **Dawa** (Swahili: *medicine*). Veto it and I will rename
+> everything in one pass — the name appears in config, not in logic.
+> Supersedes the Biostruct v1 design. Research: [docs/research.md](docs/research.md).
 
 ---
 
 ## 1. Overview
 
-**Problem.** Drug-resistant infection is a frontline clinical problem across Africa, but the
-computational tools for early therapeutic protein design are scattered across a dozen services and
-assume a GPU cluster, an MLOps team and a computational-biology background. A researcher who knows
-the clinical problem cannot easily get to a prioritised list of candidate binders.
+**Problem.** Sub-Saharan Africa has the highest death rate from drug-resistant
+infection in the world — 23.5 per 100,000. In the WHO African region in 2019,
+~1.05 million deaths were associated with bacterial antimicrobial resistance and
+250,000 were directly attributable to it. Four pathogens each killed over
+100,000 people: *S. pneumoniae*, *K. pneumoniae*, *E. coli*, *S. aureus*.
+Drug discovery is concentrated where the money is, and it is not here.
 
-**Users.**
+**What changed.** Two steps of drug discovery that used to require a
+crystallography lab, years, and hundreds of thousands of dollars now require a
+computer and minutes: predicting a protein's 3D shape, and finding molecules
+that fit it. The models are available to anyone with an API key. Using them
+correctly still requires structural-biology expertise that most African labs
+working on these infections do not have on staff.
 
-| User | What they bring | What they lack | What they need from us |
-|---|---|---|---|
-| **Primary — academic/clinical microbiologist** (African university or research hospital) | Deep knowledge of the pathogen and the local resistance picture | Protein-design expertise, GPUs, budget | Disease → ranked candidates, explained in their language, without choosing a model |
-| **Secondary — computational biologist** | Can read ipTM and PAE | Time to glue APIs together | A fast, auditable pipeline they can trust and export from |
-| **Tertiary — reviewer / grant panel / collaborator** | Scientific scepticism | Context on how a candidate was produced | A provenance trail and honest uncertainty |
+**Target user.** A researcher — microbiology, infectious disease, pharmacy or
+a university group — who knows which infection they are fighting and has no
+computational biology department. Not a clinician treating a patient; nothing
+here reaches a bedside.
 
-**Core jobs-to-be-done.** Pick an infection → find and understand a protein target → generate
-candidate binders → see their structures → evaluate predicted interaction → compare and rank with
-reasons → export for the wet lab.
+**Jobs to be done.**
+1. *Understand* — research a pathogen, resistance mechanism or drug class and
+   get answers where every claim carries a paper that actually resolves.
+2. *See* — turn an amino-acid sequence (often a mutant from their own
+   sequencing run) into a 3D structure they can inspect.
+3. *Attack* — screen or design molecules against that structure and get a
+   ranked shortlist with structures, drug-likeness, and an honest reading.
 
-**Success metrics** (measurable, checked at milestone close):
+**Scope within the drug-discovery pipeline.** Steps 2 and 3 only:
 
-| # | Metric | Target |
-|---|---|---|
-| S1 | Time from "new project" to a ranked candidate list, for a user who has never used the platform | **< 20 minutes** of wall-clock, **< 6 user decisions** |
-| S2 | Share of the KPC-2 reference run's top-10 candidates where the ranking explanation cites only metrics actually present in the result payload | **100%** (claim-lint enforced) |
-| S3 | Cost per completed demo project | **< $10**, with `estimate_cost` shown before every spend |
-| S4 | Scientific Review guardrail catches overstated efficacy claims in a seeded eval set | **≥ 95%** of 40 seeded claims |
-| S5 | Export bundle re-opens in PyMOL/ChimeraX and the sequences round-trip through a FASTA parser | 100% of exports |
-| S6 | p95 API latency for non-job endpoints | **< 400 ms** |
+| Step | Who |
+|---|---|
+| 1. Sequencing, mutation identified | The researcher's lab |
+| **2. Amino acids → 3D structure** | **Dawa** |
+| **3. Structure → ranked candidate molecules** | **Dawa** |
+| 4. Synthesis and bench assays | The researcher's lab |
+| 5. Animal studies, clinical trials | Years, elsewhere |
 
-**The honest framing, stated once and enforced everywhere.** This platform produces
-*computational prioritisation*, not evidence of therapeutic effect. No candidate here is a drug.
-Nothing is a medicine until a lab says so. S4 exists because an LLM will otherwise drift into
-implying otherwise, and that drift is the single biggest reputational risk in the product.
+**Success metrics.**
+- A researcher who has never used a structure tool reaches a ranked shortlist
+  in under 10 minutes without external help. (Measured by walkthrough.)
+- Zero unresolvable citations reach a user. (Enforced by verifier; measured in
+  evals.)
+- A screen against KPC ranks the known positive control (avibactam) in the top
+  decile. (Eval, run in CI.)
+- No run spends money without an explicit confirmed estimate. (Enforced in code;
+  covered by tests.)
 
 ---
 
 ## 2. Scope
 
-### In scope for v1 (production release)
-1. Projects scoped to a drug-resistant bacterial infection, each holding **many** targets.
-2. Target discovery over UniProt + RCSB PDB + PubMed, with an evidence panel.
-3. De novo binder design via **BoltzProt-1** (hosted Boltz API), nanobody-first.
-4. Structure + interaction metrics from the same run; **Boltz-2** structure-and-binding for
-   re-scoring and for user-supplied sequences.
-5. Interactive 3D visualisation (Mol*) of the predicted complex, with the epitope highlighted.
-6. Transparent, user-configurable ranking with per-candidate explanations.
-7. Export: FASTA, mmCIF, metrics CSV, and a PDF/Markdown report with provenance.
-8. Agentic assistant (orchestrator + 5 specialists) over the whole workflow.
-9. Voice interaction via the Realtime API.
-10. Auth, projects, audit trail, per-project cost budget and hard spending cap.
+**In scope (v1, production quality).**
+- Agent workbench: conversational thread + artifact canvas.
+- Literature research with verified citations (Europe PMC, PubMed).
+- Target resolution (UniProt), measured structures (RCSB).
+- Structure prediction from sequence, and protein+ligand complexes (Boltz).
+- Small-molecule library screening, molecule design, ADME (Boltz).
+- Protein binder design (Boltz) — retained from v1, second track.
+- Molecule library assembly (ChEMBL + curated starter set with positive
+  controls).
+- Ranked results with structures, metrics, plain-language explanation, caveats.
+- Per-project hard spend ceiling with estimate→confirm on every paid call.
+- Export for a wet lab.
+- Landing page telling the problem story with cited figures.
 
-### Explicitly out of scope / later
-- Small molecules (`BoltzMol-1`), ADME — the API supports them; the product doesn't yet.
-- Antibody (vs nanobody) campaigns beyond `boltz_curated`'s `boltz_antibody` default.
-- Non-bacterial pathogens; viral/fungal targets.
-- MD simulation, docking, developability beyond the rule filters Boltz applies pre-scoring.
-- On-prem BoltzGen engine — *interface reserved* (§6, `DesignEngine`), not implemented.
-- Multi-tenant orgs, billing, seats. Single-workspace, invite-only for v1.
-- LIMS / ELN integration.
+**Out of scope, stated on screen.**
+- Toxicity prediction of any kind (no hERG, no hepatotoxicity). Nothing in the
+  stack does this, and real discovery does not do it at hit-finding stage
+  either.
+- Clinical decision support. No dosing, no treatment advice, no patient data.
+- Steps 1, 4, 5 of the pipeline.
+- Screening "billions" of molecules. Every molecule is billed compute; we screen
+  hundreds to low thousands, and the `explore` endpoint samples larger spaces
+  under a budget.
 
-### Assumptions and constraints
-- **No fixed deadline.** Sequenced as milestones (§15); each milestone is independently shippable.
-- Boltz API key and OpenAI API key are available.
-- **The build runs on the Boltz free tier.** 200 predictions/month; building the whole platform
-  needs ~150 total (30 to prove the live API in M1, ~20 to capture fixtures, 100 for one good demo
-  run). All other development and CI replays recorded fixtures and costs nothing.
-  See [research §2](docs/research.md). *Unverified:* whether the 200/month applies to API usage or
-  only to Boltz Lab — checked with `auth.me()` / `admin/usage` in M1, both free calls.
-- Cost control is still a v1 feature, for two reasons that are **not** our dev spend: real research
-  campaigns are 10,000+ designs, and `num_proteins` maxes at 1,000,000, making one typo a
-  $50,000 call. It is blast-radius control plus a feature for researchers (§7 budget).
-- Python **3.12** via `uv` (system Python is 3.9; `openai-agents` needs ≥3.10).
-- No GPU. All science is hosted-API.
-- Target users are often on constrained bandwidth. The web app must work on a 3G connection and
-  degrade without WebGL (Mol* is lazy-loaded; a sequence/metrics view always works).
+**Constraints.**
+- Hackathon deadline; phases ordered so each one ends demonstrable.
+- Boltz publishes no public rates — `estimate-cost` is the only price source.
+- Boltz test keys (`sk_bc_*_test_`) return synthetic results, unbilled, and are
+  the default for development and CI.
 
 ---
 
 ## 3. Requirements
 
-### Functional (numbered, testable)
+**Functional** (numbered, each testable)
 
-| # | Requirement |
+1. A user signs in and sees their sessions.
+2. A user starts a session by describing an infection in plain words.
+3. The agent resolves that to a candidate target protein and shows why, with
+   citations.
+4. A user can paste an amino-acid sequence (or upload FASTA) and receive a
+   predicted 3D structure.
+5. A user can view any structure in an interactive 3D viewer.
+6. The agent identifies the attack site, reconciling UniProt / PDB-author /
+   model-index numbering, and shows all three.
+7. A user can screen a molecule library against a target and receive ranked
+   results with per-molecule metrics, structure and ADME.
+8. A user can request de-novo molecule design against the pocket.
+9. A user can request protein binder design (second track).
+10. Every paid operation shows a cost estimate and requires explicit
+    confirmation before running.
+11. A project has a hard spend ceiling that cannot be exceeded, even under
+    concurrent runs.
+12. Every factual claim the agent makes about literature carries an identifier
+    that resolves; unresolvable ones are removed and the claim flagged.
+13. Every ranked result carries the caveat that these are predictions, ranked
+    only within this batch, requiring experimental validation.
+14. A user can export results (structures, SMILES, metrics, citations).
+15. Long-running jobs survive a page reload and a server restart.
+
+**Non-functional**
+
+| Property | Target |
 |---|---|
-| F1 | A user can create a project naming an infection, free-text or from a curated list, and the system records the WHO/AMR context it used. |
-| F2 | Given an infection, the system returns candidate protein targets from UniProt (Swiss-Prot preferred), each with: function annotation, organism, length, available PDB structures, and ≥3 PubMed references. |
-| F3 | A user can select a target and a specific PDB structure + chain, and mark **epitope residues** (hotspots) on it, by residue number or by picking in the 3D viewer. |
-| F4 | A user can start a design run specifying modality (nanobody default), `num_proteins` (10–1,000,000, UI-capped per budget), and rule filters (excluded residues, excluded motifs, max hydrophobic fraction). |
-| F5 | The system shows the `estimate_cost` figure and requires explicit confirmation before any spend. |
-| F6 | A design run's status and `num_proteins_generated` progress stream to the browser without polling by the client. |
-| F7 | On completion, every design result is persisted with its sequence, metrics and a **copy** of its mmCIF in our own storage (source URLs expire). |
-| F8 | A candidate's predicted complex renders in Mol*, with binder and target chains distinctly coloured and epitope residues highlighted. |
-| F9 | Candidates are ranked by a configurable weighted score over `binding_confidence`, `iptm`, `ipsae_min`, `min_interaction_pae` (inverted) and `structure_confidence`; weights are visible and editable; changing them re-ranks without recomputation. |
-| F10 | Each ranked candidate carries a generated explanation that cites **only** metric values present in its payload, with its percentile within the run. |
-| F11 | A user can select candidates and export a bundle (FASTA + mmCIF + CSV + report) that states the method, model versions, parameters, date and the limitations. |
-| F12 | The assistant answers questions about the project using tools, never from memory, and can start/inspect runs on request with confirmation for anything that spends money. |
-| F13 | A user can hold a voice conversation with the assistant that reaches the same tools as text. |
-| F14 | Any generated narrative asserting therapeutic efficacy, potency or clinical readiness is blocked and regenerated. |
-| F15 | A project has a cost budget; runs that would exceed it are refused before submission. |
-| F16 | Every job submission is idempotent under retry (`idempotency_key`). |
-| F17 | A user can stop a running design job and resume a stopped one. |
-| F18 | A full audit trail records every external call (model, params, cost, job id, timestamp) per project. |
-
-### Non-functional
-
-| Area | Target |
-|---|---|
-| Latency | p95 < 400 ms for CRUD/search endpoints; UniProt/PDB/PubMed fan-out < 2.5 s (cached < 150 ms); first Mol* paint < 1.5 s after CIF fetch |
-| Job latency | Design runs are minutes–hours. **No request waits on one.** Progress visible within 10 s of a status change. |
-| Availability | 99.5% for the app. External science APIs are assumed flaky: every call retried with jittered backoff, degraded answers labelled as such. |
-| Scale (v1) | 100 registered users, 20 concurrent, 500 design runs/month, ~50 GB structures. Single API instance + worker; nothing in the design prevents horizontal scaling (all state in Mongo/S3). |
-| Cost ceiling | Platform infra < $60/month. Science spend bounded by per-project budgets + a Boltz workspace spending limit. OpenAI < $50/month at v1 traffic. |
-| Security | OWASP ASVS L2 posture. No secret ever reaches the browser. Prompt-injection defence on all retrieved text (§11). |
-| Accessibility | WCAG 2.2 AA. Keyboard-navigable throughout. Mol* has a non-visual equivalent (sequence + metrics table). `prefers-reduced-motion` respected. |
-| Bandwidth | Initial JS < 200 KB gzipped excluding the lazy Mol* chunk. |
+| First token from agent | < 2 s |
+| Structure viewer interactive | < 3 s after result available |
+| Job durability | Survives API restart; reconciler resumes |
+| Concurrency | Per-project budget safe under parallel runs (compare-and-set) |
+| Cost ceiling | Per project, user-set, default $25; hard-enforced |
+| Secrets | Never in client, never in logs, never in LLM context |
+| Accessibility | Keyboard reachable, visible focus, content visible without JS, `prefers-reduced-motion` honoured |
+| Data retention | Boltz artifacts expire in 7 days; we persist metrics + our own copies |
 
 ---
 
 ## 4. System context & high-level design
 
 ```mermaid
-graph TB
-    subgraph Browser
-        UI[Next.js App Router<br/>React + Tailwind]
-        MOL[Mol* viewer<br/>lazy chunk]
-        RTC[Realtime voice client<br/>WebRTC]
-    end
+flowchart TB
+  U[Researcher] --> W[Next.js workbench<br/>thread + artifact canvas]
+  W -->|/api proxy, same-origin cookies| A[FastAPI]
 
-    subgraph Vercel
-        UI
-    end
+  A --> AG[Agent orchestrator]
+  AG -->|chat + tool calls| LLM[(OpenAI)]
+  AG --> T[Tool layer]
 
-    subgraph "Backend — Railway"
-        API[FastAPI<br/>REST + SSE]
-        ORCH[Agent orchestrator<br/>openai-agents]
-        REC[Job reconciler<br/>scan loop]
-        BRIDGE[Voice tool bridge]
-    end
+  T --> ENG[Boltz engine client]
+  T --> SRC[Free data sources]
 
-    subgraph Data
-        MONGO[(MongoDB Atlas<br/>projects, targets, candidates,<br/>sessions, source cache TTL)]
-        S3[(Railway Bucket · S3 API<br/>mmCIF, archives, reports)]
-    end
+  ENG -->|REST, x-api-key| B[(Boltz API<br/>api.boltz.bio)]
+  SRC --> UP[(UniProt)]
+  SRC --> RC[(RCSB PDB)]
+  SRC --> EP[(Europe PMC)]
+  SRC --> PM[(PubMed)]
+  SRC --> CH[(ChEMBL)]
 
-    subgraph "External science"
-        BOLTZ[Boltz API<br/>BoltzProt-1, Boltz-2]
-        UNIPROT[UniProt REST]
-        PDB[RCSB PDB]
-        PUBMED[NCBI E-utilities]
-    end
-
-    OPENAI[OpenAI<br/>Responses + Realtime]
-
-    UI -->|REST| API
-    UI -->|SSE: job + agent events| API
-    MOL -->|CIF via our proxy| API
-    RTC -->|ephemeral token req| API
-    RTC <-->|audio + events, direct| OPENAI
-    RTC -->|function_call relay| BRIDGE
-    BRIDGE --> ORCH
-
-    API --> ORCH
-    API --> MONGO
-    API -->|change stream: progress| MONGO
-    API --> S3
-    ORCH --> OPENAI
-    ORCH -->|tools| UNIPROT
-    ORCH -->|tools| PDB
-    ORCH -->|tools| PUBMED
-    ORCH -->|estimate cost only<br/>never starts a run| BOLTZ
-    REC -->|scan runs in progress| MONGO
-    REC -->|poll status/results| BOLTZ
-    REC -->|mirror artifacts| S3
-    REC -->|write progress| MONGO
+  A --> M[(MongoDB Atlas<br/>replica set)]
+  M -->|change streams| A
+  A -->|SSE| W
+  A --> REC[Reconciler]
+  REC --> ENG
 ```
 
-**Path of the one request that matters.** A user asks the assistant to design binders against
-KPC-2. FastAPI runs the orchestrator, which calls the Protein Design Agent as a tool. That agent
-calls `estimate_cost`, returns the figure, and **stops** — spending needs a human. The user
-confirms in the UI. FastAPI checks the project budget, calls `client.protein.design.start()` with
-an `idempotency_key`, writes a `design_run` document with status `pending`, and returns the run id
-in well under a second. The reconciler's next scan picks the run up, polls `retrieve()` on a
-backoff schedule and writes progress to the run document; FastAPI watches that collection with a
-MongoDB change stream and relays updates to the browser over SSE. On
-`succeeded`, the reconciler pages through `list_results()`, mirrors each `artifacts.structure.url`
-into S3 **before its `url_expires_at`**, writes a `candidate` document per design, and marks the
-run complete. Ranking is computed on read, from stored metrics.
-
-**The load-bearing idea:** the long-running work lives in Boltz, and the reconciler is the only
-component that talks to it about a running job. Nothing else in the system blocks, so nothing else
-needs to know a job can take hours.
+**Path of a request.** The browser talks only to Next.js, which rewrites
+`/api/*` to the FastAPI origin so the session cookie stays first-party,
+httpOnly and SameSite=Lax. FastAPI authenticates, loads the session, and hands
+the turn to the agent orchestrator. The orchestrator streams tokens back over
+SSE while calling tools. Tools that cost money do not execute: they return a
+*proposal* with a cost estimate, which is rendered as a confirmation card in the
+thread. On confirmation the API reserves budget (compare-and-set), submits the
+job to Boltz, and records it. The reconciler polls live jobs; results land in
+MongoDB; change streams push updates to the open thread over SSE.
 
 ---
 
@@ -210,328 +179,157 @@ needs to know a job can take hours.
 
 | Layer | Choice | Version | Why | Rejected |
 |---|---|---|---|---|
-| Frontend | Next.js App Router + TypeScript | 15.x | Brief's choice; RSC keeps the science payloads server-side; Vercel deploy | SvelteKit (smaller ecosystem for Mol*) |
-| Styling | Tailwind CSS | 4.x | Brief's choice | CSS modules |
-| Motion | GSAP + ScrollTrigger + SplitText, `motion/react`, Lenis | latest pinned | House standard (`AGENTS.md`, `motion-web`); a dead UI is unfinished work | Framer-only |
-| 3D | **Mol\*** (`molstar`) | 4.x | The reference viewer for mmCIF; brief's choice; handles multi-chain + residue selection natively | NGL (less maintained), 3Dmol.js (weaker mmCIF) |
-| Backend | Python + FastAPI | 0.115+ | Brief's choice; async-native, which matches an I/O-bound job-polling workload; same language as `boltz-api` and `openai-agents` | Node (would split the stack away from both SDKs) |
-| Runtime | Python **3.12** via `uv` | 3.12 | `openai-agents` needs ≥3.10; `uv` for reproducible, fast installs | System 3.9 (too old), Poetry (slower) |
-| Science API | **`boltz-api`** | **pinned `==0.50.0`** | Only route to BoltzProt-1 de novo design ([research §1–2](docs/research.md)). Base URL `https://api.boltz.bio`, auth header `x-api-key`. Docs at `api.boltz.com/docs`; keys from `api.boltz.com/console` | Self-hosted BoltzGen (needs A100 + 39 GB weights); NVIDIA NIM (no design model) |
-| Agents | `openai-agents` | 0.24.0 | Brief's choice; gives us agents-as-tools, typed context, guardrails and tracing for free | LangGraph (more machinery than this needs), bespoke loop |
-| Voice | OpenAI Realtime, `gpt-realtime-2.1`, browser WebRTC | GA | Lowest-latency path; ephemeral tokens keep our key server-side | Python SDK `RealtimeAgent` (WebSocket only, no WebRTC — but see §7 fallback) |
-| Database | MongoDB **Atlas** (not Railway's managed Mongo) | 7.x | Brief's choice; document shape fits the deeply nested, schema-drifting Boltz payloads, which we store verbatim; **and** `openai-agents` ships `MongoDBSession`, so chat history needs no bespoke layer. **Atlas, because change streams require a replica set** and Atlas always is one; Railway's managed Mongo is a single container, so replica-set support is unverified (M0 checks it — if it works we can consolidate) | Railway managed Mongo (replica set unverified); Postgres+JSONB (good fit, but would duplicate the session store) |
-| Background work | **Plain asyncio scan loop** over MongoDB — no queue, no broker | — | We have exactly one kind of background work: poll runs that are in progress. That is a *scan*, and Mongo already holds the truth about which runs need polling (index `design_runs(status, updated_at)`). A scan is also **more** robust than a queue: a dropped queue message would leave a run un-polled forever, while a scan retries by construction. | **Celery** and **ARQ** + Redis (a broker buying nothing here); see ADR-003 |
-| Cache | **MongoDB TTL collection** | — | One collection, `expires_at` TTL index, for UniProt/PDB/PubMed responses. No second datastore to operate | Redis (extra service for a cache this small) |
-| Progress → browser | **MongoDB change streams** → SSE | — | The API watches `design_runs` and fans out in-process to SSE clients. Works across any number of API instances, since every instance sees the stream. Supported on Atlas free clusters | Redis pub/sub; polling from the client |
-| Object storage | **`StorageBackend` interface**: local disk in dev, **Railway Bucket** (S3-compatible) in prod | — | Lives in the same Railway project as the services, so credentials come from `railway bucket credentials` and there is no extra vendor, no separate signup and no subscription checkout. `STORAGE_BACKEND=local` keeps dev free of any cloud account | Cloudflare R2 (another vendor, and its token creation is gated behind a subscription checkout); AWS S3 (egress cost) |
-| Hosting | Vercel (web) + **Railway** (API + worker + Bucket) | — | User's choice. One project holds the API service, the worker service and the object-storage Bucket, with per-environment variables and IaC in `.railway/`. Long-lived processes suit our SSE + reconciler loop, which serverless does not | Fly.io (earlier draft); Lambda (SSE and minute-long polling awkward) |
-| Reports | WeasyPrint | — | Server-side HTML→PDF, no headless browser | Puppeteer (heavy) |
+| Frontend | Next.js App Router + TypeScript + Tailwind | 16 / TS 5 / TW 4 | Already built, SSR, rewrites keep cookies first-party | SPA (cookie/CORS complexity) |
+| 3D viewer | Mol\* | 5.13.1 | Industry standard, already integrated and chrome-suppressed | NGL, 3Dmol.js |
+| Motion | GSAP + ScrollTrigger + SplitText, `motion/react` | 3.15.1 | House standard; landing page needs authored motion | CSS-only |
+| Backend | FastAPI + Python 3.12 (uv) | — | Already built; async-native, typed | Node (would discard working code) |
+| Database | MongoDB Atlas (replica set) | — | Change streams drive SSE; TTL cache; no Redis needed | Postgres + Redis + queue (more infra) |
+| Science engine | **Boltz API** | `boltz-2.1`, `adme-v1` | Covers *both* steps in one API with a usable commercial licence | AlphaFold 3 (no API, non-commercial), Chai-2 (no public API), DiffDock (pose only, no affinity/ranking/ADME) |
+| LLM | **OpenAI** | model ID verified against official docs at build time | User's decision; key already provisioned | — |
+| Auth | Argon2id + opaque session tokens (SHA-256 at rest) + double-submit CSRF | — | Already built and tested | JWT in localStorage (XSS exposure) |
+| Money | `Decimal`, stored as quantized strings | — | Binary floats must never touch currency | float |
 
-> **Two deviations from the brief, both deliberate.** No Celery and **no Redis at all** — the
-> long-running job lives in *Boltz*, so our background work is a status scan, which MongoDB already
-> serves better than a queue would. And a reconciler instead of a worker owning the whole job.
-> Recorded as ADR-003 and ADR-004 in §17.
+**Why Boltz and not AlphaFold.** AlphaFold 3 has no public API and its weights
+are non-commercial; AlphaFold Server is a web form whose terms bar commercial
+use. AlphaFold 2 weights permit commercial use but there is no hosted API — it
+needs local GPUs and the full MSA databases. More decisively, AlphaFold covers
+Step 2 only; Step 3 would need a second vendor. Boltz covers folding,
+complexes, binding metrics, library screening, molecule design, ADME and
+protein design behind one key, one billing model and one job lifecycle we have
+already built. The trade is some accuracy on certain complex types for a
+licence we can use and an API that exists. For hypothesis generation destined
+for lab validation, that is the right trade, and it is a trade.
+
+**AlphaFold DB was considered and dropped.** It is free, but it is a lookup of
+precomputed structures for known sequences. RCSB (already integrated) covers
+the measured case better, and our users' proteins are frequently mutants, which
+no precomputed database holds. The remaining gap did not justify another moving
+part.
 
 ---
 
 ## 6. Components
 
-### 6.1 `boltz_adapter` — the only module that imports `boltz_api`
+### 6.1 Agent orchestrator (`agent/`)
+Owns a session's turn loop. Streams assistant tokens over SSE, emits tool-call
+events, enforces step and token budgets. Stateless per turn; conversation state
+lives in MongoDB. **Failure:** on LLM error, the turn ends with an explicit
+error message in the thread; the session is never left half-written.
 
-**Responsibility.** Translate between our domain model and the Boltz wire format, and absorb SDK
-churn. Nothing else in the codebase may import `boltz_api`.
+### 6.2 Tool layer (`agent/tools/`)
+Typed, namespaced tools. Each declares a JSON schema, is validated on input and
+output, and returns condensed structured results — never raw dumps. Paid tools
+return a *proposal*, not a result. **Failure:** every tool returns a typed error
+the model can act on ("UniProt unreachable, nothing was charged").
 
-**Interface.**
-```python
-class DesignEngine(Protocol):
-    async def estimate_design_cost(self, spec: DesignSpec) -> CostEstimate: ...
-    async def start_design(self, spec: DesignSpec, idempotency_key: str) -> EngineJob: ...
-    async def get_design_status(self, job_id: str) -> EngineJobStatus: ...
-    async def iter_design_results(self, job_id: str) -> AsyncIterator[DesignResult]: ...
-    async def stop_design(self, job_id: str) -> None: ...
-    async def resume_design(self, job_id: str) -> None: ...
-    async def predict_structure_and_binding(self, spec: ComplexSpec) -> EngineJob: ...
-```
-`BoltzHostedEngine` implements it today. `BoltzGenLocalEngine` is the reserved seat for on-prem
-(§2) — it exists as a `NotImplementedError` stub so the seam stays honest.
+### 6.3 Boltz engine client (`engines/boltz.py`, extended)
+Existing typed client. v1 covers `/protein/design`. v2 adds
+`predictions/structure-and-binding`, `small-molecule/library-screen`,
+`small-molecule/design`, `predictions/adme`. All share the same lifecycle:
+`estimate-cost` → submit with idempotency key → poll → paginate results →
+persist. **Failure:** `EngineUnavailable` vs `EngineRejected` already
+distinguished; surfaces as a plain-language message with nothing charged.
 
-**Owned data.** None. Stateless.
+### 6.4 Free data sources (`sources/`)
+`uniprot.py`, `rcsb.py`, `pubmed.py` exist. New: `europepmc.py`, `chembl.py`.
+All fan out in parallel with per-source timeouts and **degrade rather than
+fail** — a missing source is reported on screen ("we could not reach X, so this
+list is incomplete"), never silently swallowed.
 
-**Failure behaviour.** `estimate_cost` failure → block the run, surface the error (never spend
-blind). `start` failure → retry with the *same* `idempotency_key`; on exhaustion mark the run
-`submit_failed`. `retrieve` failure → the reconciler backs off, never marks the run failed on a
-transport error; a run is only `failed` when Boltz says `status == "failed"`.
+### 6.5 Citation verifier (`agent/citations.py`) — new
+Takes the assistant's draft plus the set of identifiers returned by tool calls
+this turn. Strips any citation the model invented. Re-resolves every surviving
+identifier against its source. Unresolvable → removed and the sentence flagged.
+**This is a code gate, not a prompt instruction.**
 
-**Contract tests.** Recorded fixtures of every response shape in `tests/fixtures/boltz/`. CI
-asserts our parsing against them, so a `boltz-api` bump that changes a field name fails loudly
-instead of silently producing `None` metrics.
+### 6.6 Budget ledger (`budget.py`)
+Exists. Per-project ceiling, reserve → commit → release, compare-and-set so
+concurrent runs cannot both slip under the limit. Money as `Decimal`,
+serialised as strings.
 
-### 6.2 `science_sources` — UniProt / RCSB / PubMed clients
+### 6.7 Reconciler (`jobs/`)
+Exists. MongoDB scan is the work list; no queue. Resumes interrupted runs,
+harvests results, releases reservations.
 
-**Responsibility.** Target discovery and evidence. One module per source, a shared
-`CachedHTTPClient` backed by a MongoDB TTL collection, with jittered retry and a token-bucket
-limiter.
-
-**Interfaces.** `search_proteins(organism, query, reviewed_only) -> [ProteinTarget]`,
-`get_structures(uniprot_accession) -> [StructureRef]`, `get_cif_url(pdb_id) -> str`,
-`search_literature(query, limit) -> [Reference]`.
-
-**Failure behaviour.** Any source can be down. A partial target panel is returned with an explicit
-`degraded: ["pubmed"]` field that the UI renders as a visible warning. We never silently show an
-incomplete evidence panel as complete — that would be the most dangerous possible failure mode in
-a scientific tool.
-
-**PubMed specifics.** 3 req/s unkeyed (10 keyed). Token bucket at 2.5 req/s, `tool=` and `email=`
-on every call, 24 h cache.
-
-### 6.3 `jobs` — the reconciler
-
-**Responsibility.** The only component that polls a running Boltz job.
-
-A single asyncio loop in the worker process. Every 10 s it scans
-`design_runs.find({status: {$in: ["pending", "running"]}})` — served by the
-`design_runs(status, updated_at)` index — and for each run due a check (per its own backoff ladder:
-10 s for the first minute, then 30 s, then 60 s, capped) calls `get_design_status`, writes
-`{status, num_proteins_generated, pct}` onto the run document, and on `succeeded` runs the
-**harvest** step.
-
-There is no queue and no broker. The run documents *are* the work list, which means a worker
-restart loses nothing and needs no recovery logic: the next scan simply sees the same unfinished
-runs. Concurrent workers are safe via a `claimed_until` lease field on each run, so this scales to
-more than one worker without introducing a broker.
-
-**Harvest** is the critical, failure-prone step:
-1. Page through `iter_design_results`.
-2. For each result, **mirror `artifacts.structure.url` to object storage before `url_expires_at`** —
-   measured at about **30 minutes** ([observed](docs/boltz-api-observed.md)), so this is urgent work,
-   not background work.
-3. Write one `candidate` document per design, with metrics and our storage key.
-4. Mirror `artifacts.archive.url` once per run.
-5. Mark the run `complete` only after all mirrors succeed.
-
-Idempotent and resumable: harvest records a cursor, so a crash mid-harvest resumes rather than
-duplicating. If mirroring fails after retries, the run is marked `harvest_partial` and the UI says
-so, with a re-harvest action — but presigned URLs may already have expired, which is why mirroring
-is attempted immediately and is the worker's highest-priority work.
-
-**Failure behaviour.** Transport errors never fail a run. A `stopped` job is left alone.
-Runs with no status change for 24 h are flagged `stale` for human attention.
-
-### 6.4 `ranking` — deterministic, explainable, no LLM
-
-**Responsibility.** Score and order candidates. **Pure functions, no model calls.** This is
-deliberate: a ranking a user cannot reproduce is not a ranking they can defend in a paper.
-
-```python
-DEFAULT_WEIGHTS = RankingWeights(
-    binding_confidence=0.40,   # SDK: "Primary metric for hit discovery"
-    iptm=0.20,                 # interface confidence
-    ipsae_min=0.20,            # interface confidence, PAE-aware, 10 Å cutoff
-    min_interaction_pae=0.10,  # INVERTED — lower is better
-    structure_confidence=0.10,
-)
-```
-Each metric is min-max normalised **within the run** (absolute scales are not comparable across
-targets), `min_interaction_pae` is inverted, then weighted. Output per candidate: composite score,
-per-metric normalised contribution, percentile within run, and any `warnings[]` from Boltz.
-
-Rules that are not negotiable:
-- Only **binder** results are ranked, identified by the *presence of binding metrics*. The live API
-  does **not** return the `type` discriminator the SDK declares ([observed](docs/boltz-api-observed.md)),
-  so it cannot be branched on. Results without binding metrics are shown separately, never scored.
-- `ipsae_min` is `Optional`. Missing metrics are *excluded with their weight redistributed*, and
-  the candidate is flagged `partial_metrics` — never defaulted to 0, which would silently bury it.
-- Weights are stored per project, so a re-rank is a recompute over stored numbers: free, instant,
-  no API spend.
-
-### 6.5 `agents` — orchestrator + specialists
-
-See §7. Owns no data; reads and writes through the same services the REST API uses.
-
-### 6.6 `exports`
-
-Builds a zip: `candidates.fasta`, `structures/*.cif`, `metrics.csv`, `report.pdf`,
-`provenance.json`. Provenance records model versions, every parameter, the ranking weights, job
-ids, timestamps and the limitations statement. The report's first page is the limitations, not the
-results — deliberately.
-
-### 6.7 `web` — Next.js app
-
-Routes: `/` (landing), `/projects`, `/projects/[id]` (workflow shell with the 7 steps),
-`/projects/[id]/targets`, `/.../design`, `/.../candidates`, `/.../candidates/[cid]` (Mol* + metrics),
-`/.../export`. Server Components fetch through the API; the Mol* viewer and the voice client are
-client components in lazy chunks.
-
-Per `AGENTS.md` and the `motion-web` standard: authored entrance per route, scroll-driven reveals
-on the landing and method pages, calm fast motion in the workflow screens, a route transition, and
-feedback on every control. No purple-gradient hero, no three identical cards, no emoji icons.
-Workflow screens get *restraint* — this is a tool someone uses for an hour, not a page they scroll
-once.
+### 6.8 Residue numbering (`sources/residues.py`)
+Exists and is load-bearing. Reconciles UniProt position, PDB author numbering
+(which has gaps) and 0-based model index. Getting this wrong produces confident
+garbage with no error anywhere, which is the worst failure mode in this domain.
 
 ---
 
 ## 7. AI / agent architecture
 
-### Pattern: single orchestrator, specialists as tools
+**Pattern: orchestrator + typed tools with deterministic code gates.** Not an
+autonomous loop. Each scientific step costs real money and produces output a
+researcher may act on, so confirmation is enforced by code, not by asking the
+model nicely. Rejected: autonomous agent (unbounded spend, no approval point);
+multi-agent fan-out (this workload is sequential and shares tight context — it
+would multiply tokens for no gain).
 
-Chosen per `ai-agent-builder`'s "simplest pattern that works". The brief's five specialists are
-real role separations, so a single mega-prompt would be worse. But the orchestrator must
-**compose** their output — *"compare these three candidates and tell me which is most promising"*
-needs evaluation + review results merged into one answer.
+**Roster**
 
-`agent.as_tool()` keeps the orchestrator in control and returns specialist output as a tool result.
-A **handoff transfers control**, which would lose the composition. So: **agents-as-tools, not
-handoffs** ([research §3](docs/research.md)). The one exception is the Scientific Review Agent,
-which runs as an **output guardrail** rather than a tool, so it cannot be skipped.
+| Agent | Model | Job | Tools |
+|---|---|---|---|
+| Orchestrator | OpenAI, reasoning-capable tier | Plans, calls tools, writes the answer, proposes next step | All |
+| Extractor | OpenAI, cheap tier | Pull a sequence from pasted text, normalise a protein name, summarise an abstract | None |
+| Verifier | *No model* — deterministic | Re-resolve citations, validate schemas | — |
 
-```mermaid
-graph TB
-    U[User · text or voice] --> ORCH
+**Tool contracts**
 
-    subgraph "Research Orchestrator — gpt-5.2"
-        ORCH[Orchestrator<br/>plans, delegates, composes]
-    end
+| Tool | In | Out | Paid |
+|---|---|---|---|
+| `literature.search` | query, filters | records with resolvable IDs | no |
+| `literature.read` | id | abstract / OA full text | no |
+| `target.find` | plain text | UniProt reviewed candidates + relevance verdict | no |
+| `target.structures` | accession | RCSB structures, active sites | no |
+| `structure.predict` | sequence \| entities, binding spec | **proposal** → job → structure + confidence | **yes** |
+| `pocket.identify` | target | residues in all three numbering systems | no |
+| `molecules.library` | target class, size | SMILES set incl. positive control | no |
+| `molecules.screen` | target, molecules, filters | **proposal** → job → ranked hits + ADME | **yes** |
+| `molecules.design` | target, pocket | **proposal** → job → novel molecules | **yes** |
+| `molecules.adme` | smiles[] ≤128 | lipophilicity, permeability, solubility | **yes** |
+| `proteins.design` | target, epitope | **proposal** → job → binders | **yes** |
+| `results.rank` | run id | ordered, banded, explained, caveated | no |
 
-    ORCH -->|as_tool| RA[Research Agent]
-    ORCH -->|as_tool| TA[Target Analysis Agent]
-    ORCH -->|as_tool| PD[Protein Design Agent]
-    ORCH -->|as_tool| EV[Evaluation Agent]
+**Context strategy.** The thread is the state. Tool results are stored whole in
+MongoDB and injected into context as condensed summaries with IDs; the agent
+re-reads detail just-in-time via a fetch tool rather than carrying it. Long
+sessions compact older turns into a running summary. System prompt and tool
+schemas are stable for cache reuse.
 
-    ORCH -.->|output guardrail,<br/>non-bypassable| SR[Scientific Review Agent]
+**Guardrails**
 
-    RA --> T1[search_uniprot<br/>search_pubmed<br/>get_amr_context]
-    TA --> T2[get_protein_detail<br/>list_pdb_structures<br/>get_structure_quality<br/>search_pubmed]
-    PD --> T3[estimate_design_cost<br/>propose_design_spec<br/>get_run_status<br/>list_curated_specs]
-    EV --> T4[list_candidates<br/>get_candidate_metrics<br/>rank_candidates<br/>compare_candidates]
+1. **Spend gate.** No paid tool executes on the model's say-so. It returns a
+   proposal; the user confirms a card in the thread; the API re-estimates and
+   rejects if the price moved.
+2. **Ceiling.** Compare-and-set budget reservation. Concurrency-safe.
+3. **Citation verifier.** Described in 6.5.
+4. **Injection defence.** All tool output — papers, UniProt descriptions, web
+   text — is passed as data in a clearly delimited channel and never as
+   instructions. The system prompt states that tool content cannot change the
+   rules.
+5. **No clinical claims.** Prohibited in the prompt *and* checked: every ranked
+   result carries the caveat, with a test that fails the build if the caveat
+   stops denying binding, denying treatment, or requiring experimental testing.
+6. **Limits.** Max tool calls per turn, max tokens per turn, timeout, and a per
+   session cost cap.
 
-    SR --> T5[claim_lint<br/>check_metric_support]
+**Eval plan** (built before prompt tuning, run in CI with test-mode keys)
 
-    HIL{{Human confirmation<br/>required to spend}}
-    T3 --> HIL
-```
-
-### Agent roster
-
-| Agent | Model | Tools | Input → Output | Why this model |
-|---|---|---|---|---|
-| **Orchestrator** | `gpt-5.2` | the four specialists as tools | user turn + project context → composed answer | Needs the strongest planning and synthesis; it is the only agent the user talks to |
-| **Research** | `gpt-5.2-mini` | `search_uniprot`, `search_pubmed`, `get_amr_context` | infection → candidate targets + references | Retrieval and summarisation; cheap model is sufficient |
-| **Target Analysis** | `gpt-5.2` | `get_protein_detail`, `list_pdb_structures`, `get_structure_quality`, `search_pubmed` | target → structured evidence assessment, `output_type=TargetAssessment` | Judgement about druggability; worth the stronger model |
-| **Protein Design** | `gpt-5.2-mini` | `estimate_design_cost`, `propose_design_spec`, `get_run_status`, `list_curated_specs` | intent + target → a validated `DesignSpec` + cost | Mostly structured parameter assembly |
-| **Evaluation** | `gpt-5.2-mini` | `list_candidates`, `get_candidate_metrics`, `rank_candidates`, `compare_candidates` | run → comparison narrative over **computed** rankings | The maths is in `ranking`; the model only narrates it |
-| **Scientific Review** | `gpt-5.2` | `claim_lint`, `check_metric_support` | any draft narrative → pass / tripwire | The adversary. Must be the strong model, or it rubber-stamps |
-
-> Model ids are placeholders pending a `claude-api`-style check against OpenAI's live model list at
-> build time. Pin exact ids in `config.py`; do not leave them floating.
-
-### Tool contracts — the rule that shapes everything
-
-**Every tool returns in seconds. No tool waits on a design run.**
-`openai-agents` documents `@tool(timeout=...)` but no job-polling pattern, which confirms it
-([research §3](docs/research.md)). `start_design` is therefore *not* an agent tool at all —
-the agent can only `estimate_design_cost` and `propose_design_spec`. Submission goes through the
-REST API after explicit human confirmation.
-
-Tools are typed, take `wrapper: RunContextWrapper[AppContext]` first, and read the project id,
-Mongo handle and engine from `wrapper.context` — context is never sent to the model.
-
-```python
-@dataclass
-class AppContext:
-    project_id: str
-    user_id: str
-    db: AsyncIOMotorDatabase
-    engine: DesignEngine
-    sources: ScienceSources
-    budget: ProjectBudget
-```
-
-### Context and memory
-- **Conversation:** `MongoDBSession` from `openai-agents`, keyed `session_id = f"project:{project_id}:user:{user_id}"`. Same database as everything else; no bespoke store.
-- **Project state:** passed as typed context, not conversation history. The model gets a compact
-  rendered summary (target, run count, top candidates) injected per turn, so a long chat never
-  drifts from the real state.
-- **No vector store in v1.** Literature is fetched live and cited by PMID. A RAG index over PubMed
-  is a v2 question, and adding one now would be unjustified machinery.
-
-### Guardrails and human-in-the-loop
-
-| Guardrail | Type | Behaviour |
+| Suite | Cases | Grading |
 |---|---|---|
-| **Scientific Review** | output guardrail on the orchestrator | Tripwire on claims of therapeutic efficacy, potency, clinical readiness, or any numeric claim not present in the payload. On trip: regenerate once with the violation cited; on second trip, return the evidence table with no narrative. |
-| **Metric support check** | output guardrail | Every number in the narrative must appear in the retrieved payload. Catches hallucinated ipTM values — the most plausible-looking and most damaging error class. |
-| **Scope / injection** | input guardrail | Rejects attempts to redirect the assistant away from the research task; see §11 for retrieved-text injection. |
-| **Budget** | hard code, not a model | A run exceeding the project budget is refused in the API layer. Models are never trusted with spend. |
+| Target resolution | 20 plain-English infections → expected UniProt family | code |
+| Citations | 15 research questions | **code: every ID must resolve**; zero tolerance |
+| Numbering | 10 targets → expected author/UniProt/index triples | code |
+| Screen sanity | KPC + library containing avibactam | code: positive control in top decile |
+| Refusals | 10 clinical/dosing/diagnosis prompts | LLM judge + rubric |
+| Spend gate | attempt paid action without confirmation | code: must not execute |
 
-**Human-in-the-loop points (all three are mandatory, none is a model decision):**
-1. Target selection — the researcher chooses; the agent only recommends.
-2. **Every spend** — `estimate_cost` shown, explicit confirm, budget checked server-side.
-3. Export — the researcher chooses what leaves the platform.
-
-### Eval plan
-- **Golden path:** the KPC-2 reference project, recorded end-to-end, asserted on structure not prose.
-- **Guardrail evals:** 40 seeded over-claims (S4 ≥ 95% caught) + 40 legitimate statements that must
-  *not* trip (false-positive rate < 10%; an over-eager reviewer that blocks real findings is its
-  own failure).
-- **Tool-selection evals:** 30 user utterances → expected tool sequence.
-- **Grounding:** every numeric claim in sampled outputs checked against the payload, automated.
-- **Regression:** evals run in CI on any prompt or tool change. Prompts live in versioned files, not
-  inline strings, so a prompt diff is reviewable.
-
-### Cost and latency budget per interaction
-
-| Interaction | Latency | Cost |
-|---|---|---|
-| Simple question | < 3 s | < $0.01 |
-| Target discovery (fan-out + synthesis) | < 15 s | < $0.05 |
-| Candidate comparison | < 8 s | < $0.03 |
-| Design run (100 designs, KPC-2 crop tier) | minutes–hours | ~**$5** |
-| Voice, per minute | — | ~$0.10 (`gpt-realtime-2.1`: $32/$64 per 1M audio tokens) |
-
-Per-project budget default **$25**, hard-capped by a Boltz **workspace spending limit** set out of
-band, plus a UI ceiling on `num_proteins`. Three independent limits, because `num_proteins` accepts
-up to 1,000,000 and a single misplaced digit is a $50,000 call that cannot be undone. During the
-build these limits are never reached — the whole build fits in the free tier (§2).
-
-### Voice
-
-Browser connects **directly to OpenAI over WebRTC**; FastAPI mints an ephemeral key via
-`POST /v1/realtime/client_secrets` (TTL 600 s default). Our standard key never leaves the server.
-
-**The one hard problem:** with WebRTC, function calls surface *in the browser*
-(`response.done`, output type `function_call`), but our tools need Mongo, the Boltz client and the
-user's auth. So the browser acts purely as a **relay**:
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant API as FastAPI
-    participant OAI as OpenAI Realtime
-
-    B->>API: POST /voice/token  (session cookie)
-    API->>OAI: POST /v1/realtime/client_secrets
-    OAI-->>API: ek_... + expires_at
-    API-->>B: ephemeral key (600s)
-    B->>OAI: SDP offer (Bearer ek_...)
-    OAI-->>B: SDP answer · channel "oai-events"
-    Note over B,OAI: audio flows directly
-
-    OAI-->>B: response.done · function_call(name,args)
-    B->>API: POST /voice/tool-call {call_id,name,args}
-    Note over API: authn, authz, budget check,<br/>execute server-side
-    API-->>B: result JSON
-    B->>OAI: conversation.item.create(function_call_output)
-    B->>OAI: response.create
-```
-
-The browser never sees a Boltz key, a database handle, or another user's project. Every relayed
-call is re-authorised server-side against the session — the browser is treated as hostile, because
-with a relay architecture it effectively is. Tool names are allow-listed; spending tools are
-**not** exposed to voice at all.
-
-**Fallback if WebRTC proves unworkable:** proxy audio through FastAPI to the Python SDK's
-`RealtimeRunner` (server WebSocket), which runs tools server-side natively. Higher latency, simpler
-trust model. Decided at the voice milestone with a measurement, not a guess.
+**Cost/latency budget.** Chat turn: < $0.05, < 2 s to first token. Structure
+prediction: priced by `estimate-cost`, typically seconds-to-minutes. Library
+screen: priced per molecule; **default cap 250 molecules per run**, raisable
+explicitly. Session cap default $25.
 
 ---
 
@@ -539,448 +337,228 @@ trust model. Decided at the voice milestone with a measurement, not a guess.
 
 ```mermaid
 erDiagram
-    USER ||--o{ PROJECT : owns
-    PROJECT ||--o{ TARGET : investigates
-    PROJECT ||--o{ DESIGN_RUN : contains
-    PROJECT ||--|| BUDGET : has
-    PROJECT ||--o{ AUDIT_EVENT : records
-    TARGET ||--o{ STRUCTURE_REF : has
-    TARGET ||--o{ REFERENCE : cited_by
-    TARGET ||--o{ DESIGN_RUN : targeted_by
-    DESIGN_RUN ||--o{ CANDIDATE : produces
-    CANDIDATE ||--o{ ARTIFACT : stores
-    PROJECT ||--o{ EXPORT : exports
-    EXPORT }o--o{ CANDIDATE : includes
+  USER ||--o{ SESSION : owns
+  SESSION ||--o{ MESSAGE : contains
+  SESSION ||--o{ ARTIFACT : produces
+  SESSION ||--|| BUDGET : has
+  SESSION ||--o{ RUN : launches
+  RUN ||--o{ RESULT : yields
+  ARTIFACT }o--|| RUN : derived_from
+  MESSAGE ||--o{ CITATION : cites
 ```
 
-Collections and the fields that carry weight:
+- **USER** — email, argon2id hash, created_at.
+- **SESSION** — user_id, title, infection description, status, budget embedded.
+- **MESSAGE** — role, content blocks, tool calls, tool results (full), token
+  usage, created_at.
+- **CITATION** — message_id, source (`europepmc`/`pubmed`), external id, title,
+  resolved_at, `verified: bool`.
+- **ARTIFACT** — kind (`structure`/`molecule_set`/`ranking`), payload ref,
+  run_id, created_at. What the canvas renders.
+- **RUN** — kind, engine job id, idempotency key, status, estimate, confirmed
+  cost, livemode, timestamps, error.
+- **RESULT** — run_id, metrics, SMILES or sequence, structure ref, ADME,
+  warnings.
 
-| Collection | Key fields |
-|---|---|
-| `users` | `_id`, `email` (unique, lowercased), `name`, `password_hash` (Argon2id), `role`, `created_at`, `last_login_at` |
-| `sessions` | `_id` (hash of the cookie token, never the token itself), `user_id`, `created_at`, `expires_at` **(TTL index)**, `user_agent`, `ip` |
-| `projects` | `_id`, `user_id`, `name`, `infection{name, pathogen, amr_context}`, `ranking_weights`, `created_at` |
-| `budgets` | `project_id`, `limit_usd`, `spent_usd`, `reserved_usd` — all **`Decimal`**; the API returns money as strings (`"0.0500"`) and float parsing would introduce rounding error |
-| `targets` | `_id`, `project_id`, `accession` (unique per project), `protein_name`, `organism`, `organism_id`, `sequence`, `length`, `function`, `gene_names[]`, `active_sites[]` (**UniProt numbering**), `structures[]`, `references[]`, `epitope{pdb_id, chain_id, author_residues[], uniprot_positions[], design_indices[], residue_letters, mapping, verified}`, **`degraded_sources[]`** (which sources were unreachable when the evidence was captured, so absence is never read as a finding), `evidence_fetched_at`, `created_at` |
-| `structure_refs` | `target_id`, `pdb_id`, `chain_id`, `method`, `resolution`, `cif_url`, `mirrored_key` |
-| `references` | `target_id`, `pmid`, `title`, `journal`, `year`, `abstract` |
-| `design_runs` | `_id`, `project_id`, `target_id`, `engine`, `engine_job_id`, `idempotency_key`, `spec` (verbatim request), `status`, **`livemode`** (false = synthetic test-mode results, surfaced in the UI and excluded from exports), `progress{total_to_generate, num_proteins_generated, pct}`, `cost_estimate`, `cost_actual`, `harvest_cursor` (an `after_id`, since pagination is cursor-based), `error`, timestamps |
-| `candidates` | `_id`, `run_id`, `project_id`, `engine_result_id`, `type` (`binder`\|`generic`), `sequence`, `chain_ids`, `metrics{...}`, `warnings[]`, `raw` (verbatim payload), `storage_key`, `created_at` |
-| `artifacts` | `candidate_id`\|`run_id`, `kind`, `storage_key`, `bytes`, `content_type`, `mirrored_at` |
-| `exports` | `_id`, `project_id`, `candidate_ids[]`, `storage_key`, `provenance`, `created_at` |
-| `audit_events` | `project_id`, `actor`, `action`, `service`, `params`, `cost_usd`, `job_id`, `at` |
-| `agent_sessions` | managed by `openai-agents` `MongoDBSession` |
-| `source_cache` | `_id` (source + normalised query), `payload`, `fetched_at`, `expires_at` **(TTL index)** — replaces Redis as the UniProt/PDB/PubMed cache |
-
-**Design notes.**
-- `candidates.raw` keeps the verbatim Boltz payload. Storage is cheap; a re-parse after an SDK
-  change without it would mean re-running jobs we already paid for.
-- `metrics` is a flat subdocument of the six verified names, so ranking queries are indexable.
-- `design_runs.spec` is stored verbatim for reproducibility — the export's provenance is built
-  from it, not reconstructed.
-
-**Indexes.** `projects(user_id, created_at)`, `targets(project_id)`,
-`design_runs(project_id, status)`, `design_runs(status, updated_at)` *(the reconciler's scan —
-this one is load-bearing)*, `design_runs(idempotency_key)` unique,
-`candidates(run_id, metrics.binding_confidence desc)`, `candidates(project_id)`,
-`audit_events(project_id, at desc)`, `source_cache(expires_at)` **TTL**.
-
-Change streams require a replica set. Atlas is always one, including free clusters; local dev runs
-MongoDB as a single-node replica set (§14).
-
-**Retention.** Structures and archives kept while the project lives, deleted with it.
-`delete_data` is called on Boltz for the corresponding runs on project deletion, so deletion is
-honoured upstream too. Audit events kept 2 years.
-
-**Migrations.** Numbered, forward-only scripts in `apps/api/migrations/`, each idempotent, run
-on deploy. Every document carries `schema_version`.
+**Indexes.** `sessions(user_id, updated_at)`, `messages(session_id, created_at)`,
+`runs(status)` (the reconciler's work list), `runs(idempotency_key)` unique,
+`artifacts(session_id, created_at)`.
+**Retention.** Boltz presigned artifacts expire in 7 days — we download and
+store structure files we need. TTL collection for the source cache.
+**Migrations.** Additive; v1 collections (`projects`, `targets`) remain readable
+and are migrated by a one-shot script into `sessions`.
 
 ---
 
 ## 9. API design
 
-`/api/v1`, JSON, cookie session auth (httpOnly, SameSite=Lax, CSRF token on mutations).
+All under `/v1`. Session cookie auth, double-submit CSRF on mutations. Money is
+always a string. Errors use the existing typed envelope with
+`message_for_user`.
 
-| Method | Path | Notes |
+| Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/auth/register` · `/auth/login` · `/auth/logout` · `GET /auth/me` | Email + password. `register` takes `{email, name, password}`; password policy enforced server-side (min 12 chars, checked against a common-password list). Rate-limited. |
-| `GET/POST` | `/projects` · `GET/PATCH/DELETE /projects/{id}` | |
-| `POST` | `/projects/{id}/targets/search` | `{query, organism?, reviewed_only=true}` → targets + `degraded[]` |
-| `POST` | `/projects/{id}/targets` | persist a chosen target |
-| `GET` | `/targets/{id}` · `/targets/{id}/structures` · `/targets/{id}/literature` | |
-| `POST` | `/projects/{id}/runs/estimate` | → `{cost_usd, crop_size, num_proteins, within_budget}` |
-| `POST` | `/projects/{id}/runs` | **requires `confirmed_cost_usd`** matching a fresh estimate; 409 on mismatch; 402 over budget |
-| `GET` | `/runs/{id}` · `POST /runs/{id}/stop` · `POST /runs/{id}/resume` | |
-| `GET` | `/runs/{id}/events` | **SSE**: `status`, `progress`, `harvest`, `complete`, `error` |
-| `GET` | `/runs/{id}/candidates` | paginated; `?sort=score` applies stored weights |
-| `GET` | `/candidates/{id}` · `/candidates/{id}/structure.cif` | CIF served from **our** storage, never a presigned Boltz URL |
-| `POST` | `/projects/{id}/ranking-weights` | re-rank, no recomputation |
-| `POST` | `/projects/{id}/compare` | `{candidate_ids[]}` → agent comparison |
-| `POST` | `/projects/{id}/exports` · `GET /exports/{id}` | |
-| `POST` | `/projects/{id}/chat` | SSE stream of agent events |
-| `POST` | `/voice/token` | mints the ephemeral Realtime key |
-| `POST` | `/voice/tool-call` | the relay bridge; allow-listed tool names only |
-| `GET` | `/projects/{id}/audit` | |
+| POST | `/auth/register`, `/auth/login`, `/auth/logout` | unchanged |
+| GET/POST | `/sessions` | list / create |
+| GET | `/sessions/{id}` | session + messages + artifacts |
+| POST | `/sessions/{id}/messages` | send a turn; **SSE stream** of tokens, tool events, artifacts |
+| POST | `/sessions/{id}/proposals/{pid}/confirm` | approve a priced action; body echoes the estimate |
+| POST | `/sessions/{id}/proposals/{pid}/decline` | decline |
+| GET | `/sessions/{id}/runs/{rid}` | run status |
+| GET | `/sessions/{id}/runs/{rid}/results` | paginated results |
+| GET | `/sessions/{id}/export` | bundle (CIF, SMILES, metrics, citations) |
+| GET | `/sessions/{id}/events` | SSE, change-stream backed |
+| PUT | `/sessions/{id}/budget` | set ceiling |
 
-**Errors.** RFC 9457 problem details: `{type, title, status, detail, instance}`. Domain codes:
-`budget_exceeded` (402), `cost_estimate_stale` (409), `engine_unavailable` (503),
-`guardrail_tripped` (422), `source_degraded` (200 with `degraded[]`).
-
-**Rate limits.** 60 req/min/user general; 10/min on chat; **5/hour on run creation** (a human
-cannot meaningfully start more, and it caps the blast radius of a loop bug).
-
-**Idempotency.** `POST /runs` takes an `Idempotency-Key` header, stored unique on `design_runs`,
-and reuses the same key on every Boltz retry.
-
-**Versioning.** Path-versioned. Breaking changes mean `/api/v2`.
+Rate limits: per-user token bucket on message send; per-session concurrent run
+cap.
 
 ---
 
 ## 10. Key flows
 
-### 10.1 Infection → target (with partial failure)
+**Priced action with confirmation**
 
 ```mermaid
 sequenceDiagram
-    actor R as Researcher
-    participant W as Web
-    participant API as FastAPI
-    participant AG as Research Agent
-    participant U as UniProt
-    participant P as RCSB
-    participant M as PubMed
-
-    R->>W: "Carbapenem-resistant Klebsiella pneumoniae"
-    W->>API: POST /projects/{id}/targets/search
-    API->>AG: run(query, ctx)
-    par fan-out
-        AG->>U: reviewed:true AND organism_id:573
-        U-->>AG: accessions + annotations
-    and
-        AG->>P: structures for accessions
-        P-->>AG: PDB ids, method, resolution
-    and
-        AG->>M: esearch + esummary
-        M--xAG: 429 rate limited
-    end
-    Note over AG: PubMed degraded —<br/>continue, do not fabricate
-    AG-->>API: targets + degraded:["pubmed"]
-    API-->>W: 200 + degraded banner
-    W-->>R: Targets listed, literature marked unavailable
-    R->>W: select KPC-2, PDB 2OV5 chain A
+  participant U as Researcher
+  participant A as API
+  participant L as OpenAI
+  participant B as Boltz
+  U->>A: "screen molecules against KPC"
+  A->>L: turn + tools
+  L-->>A: tool_call molecules.screen
+  A->>B: POST library-screen/estimate-cost
+  B-->>A: estimate
+  A-->>U: SSE: proposal card ($X, 250 molecules)
+  Note over U,A: nothing charged yet
+  U->>A: confirm (echoes estimate)
+  A->>A: re-estimate; reject if moved
+  A->>A: reserve budget (compare-and-set)
+  A->>B: POST library-screen (idempotency key)
+  B-->>A: job id
+  loop reconciler
+    A->>B: GET job
+    B-->>A: streaming results
+  end
+  A-->>U: SSE: ranked artifact + caveat
 ```
 
-### 10.2 Design run — submit, poll, harvest
+**Failure paths.** Estimate fails → proposal not shown, message explains, nothing
+charged. Budget insufficient → proposal shown as blocked with the shortfall.
+Submit fails → reservation released. API restarts mid-run → reconciler finds the
+run by status and resumes; the idempotency key prevents a double submission.
+Boltz unreachable (incl. DNS) → "Design engine unavailable", run marked failed,
+reservation released.
 
-```mermaid
-sequenceDiagram
-    actor R as Researcher
-    participant W as Web
-    participant API as FastAPI
-    participant B as Boltz API
-    participant Q as Reconciler
-    participant S3 as R2
-    participant DB as MongoDB
+**Research turn with citations.** Agent calls `literature.search` → records with
+IDs enter context → agent drafts → **verifier strips any invented citation and
+re-resolves the rest** → unresolvable ones removed and their sentences flagged →
+answer streams with citation chips the user can click.
 
-    R->>W: configure run (nanobody, 100 designs, rules)
-    W->>API: POST /runs/estimate
-    API->>B: protein.design.estimate_cost
-    B-->>API: $5.00 (crop 257-512)
-    API-->>W: $5.00 · budget $25 · remaining $20
-    R->>W: Confirm
-    W->>API: POST /runs {confirmed_cost_usd: 5.00, Idempotency-Key}
-    API->>DB: reserve $5 in budget
-    API->>B: protein.design.start(target, binder_spec, num_proteins, idempotency_key)
-    B-->>API: {id, status: pending}
-    API->>DB: insert design_run
-    API->>Q: enqueue reconcile(run_id)
-    API-->>W: 202 {run_id}
-    W->>API: GET /runs/{id}/events (SSE)
-
-    loop backoff 10s -> 30s -> 60s
-        Q->>B: design.retrieve(id)
-        B-->>Q: running · generated 40/100
-        Q->>DB: update progress
-        Q-->>W: SSE progress
-    end
-
-    B-->>Q: succeeded
-    Q->>B: design.list_results(id) (paged)
-    loop each result
-        Q->>S3: mirror artifacts.structure.url BEFORE url_expires_at
-        Q->>DB: insert candidate + metrics + raw
-        Q->>DB: advance harvest_cursor
-    end
-    Q->>DB: run complete, settle actual cost
-    Q-->>W: SSE complete
-    W-->>R: 100 candidates, ranked
-```
-
-**Failure paths.** Boltz 5xx on poll → back off, never fail the run. Mirror failure → retry, then
-`harvest_partial` with a visible banner and a re-harvest action. Worker crash mid-harvest → resumes
-from `harvest_cursor`. Duplicate submit → the unique `idempotency_key` returns the existing run.
-
-### 10.3 Ranking and explanation (guardrail trip)
-
-```mermaid
-sequenceDiagram
-    actor R as Researcher
-    participant API as FastAPI
-    participant RK as ranking (pure)
-    participant EV as Evaluation Agent
-    participant SR as Scientific Review (output guardrail)
-
-    R->>API: compare top 3
-    API->>RK: rank(candidates, weights)
-    RK-->>API: scores + per-metric contributions (deterministic)
-    API->>EV: narrate(ranked, payloads)
-    EV-->>SR: "Candidate A should be an effective treatment..."
-    SR--xEV: TRIPWIRE: efficacy claim unsupported
-    Note over EV: regenerate once, violation cited
-    EV-->>SR: "Candidate A ranks highest: binding_confidence 0.87<br/>(94th pct), ipTM 0.81. Computational only."
-    SR-->>API: pass
-    API-->>R: ranked table + explanation + limitations
-```
+**Fold a mutant.** User pastes sequence → extractor normalises it → agent checks
+UniProt/RCSB for an existing structure → none for this mutant → proposes
+`structure.predict` with a price → confirm → job → structure lands in canvas.
 
 ---
 
 ## 11. Security & privacy
 
-**Authn/authz.** **Email + password** sign-up and sign-in. Passwords hashed with **Argon2id**
-(`argon2-cffi`), never stored or logged in any other form. Server-side session records with an
-httpOnly, Secure, SameSite=Lax cookie holding only an opaque random token, so logout is real and a
-stolen cookie can be revoked. Login is rate-limited per email **and** per IP, and failures are
-deliberately slow and identical for "wrong password" and "no such user" so the endpoint cannot be
-used to discover who has an account. Every project-scoped query filters on `user_id` **in the query itself**,
-never after the fetch. Authorisation is re-checked on the voice relay path, where the request
-arrives from a browser we treat as hostile.
-
-**Secrets.** `BOLTZ_API_KEY`, `OPENAI_API_KEY`, `MONGODB_URI`, R2 credentials live in
-Fly secrets / Vercel env. **No science key is ever sent to the browser.** The only credential that
-reaches the client is a 600-second OpenAI ephemeral Realtime key, scoped to one session.
-`.env.example` lists every variable; `.gitignore` covers `.env*`. A pre-commit secret scan runs in CI.
-
-**Threat model.**
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| **Prompt injection via retrieved text** — a PubMed abstract or UniProt annotation containing instructions | **High** | All retrieved content is wrapped in delimited, labelled blocks marked untrusted data; system prompts state that retrieved text is never an instruction; tools are allow-listed; no tool can spend money or delete data; outputs are guardrailed. |
-| Voice relay abuse — a modified browser calling `/voice/tool-call` with forged args | High | Server-side authn + authz on every relayed call; tool-name allow-list; spending tools not exposed to voice; args schema-validated; rate-limited; `call_id` bound to the issued session |
-| Cost exhaustion (bug or abuse) | High | Per-project budget + Boltz workspace spending limit (independent) + 5 runs/hour + mandatory confirmed estimate |
-| Leaking another user's research | High | Query-level tenant filter; integration tests assert cross-user 404s |
-| **Research-content egress via LLM tracing** — `openai-agents` tracing is **on by default** and sends run content to OpenAI's dashboard | Medium | **Explicit opt-in per deployment**; `OPENAI_AGENTS_DISABLE_TRACING=1` is the default for self-hosted installs; stated plainly in the privacy notice. Unpublished target data is sensitive to our users. |
-| SSRF via a user-supplied structure URL | Medium | Only `files.rcsb.org` and our own storage are accepted as `structure` URLs; uploads go to R2 and are passed as base64 `chemical/x-cif` |
-| Presigned-URL leakage | Medium | Boltz URLs never reach the browser; we always re-serve from our own storage |
-| Dependency compromise | Medium | Pinned versions + lockfiles; Dependabot; CI audit |
-
-**PII.** Email and name only. No patient data — stated in the product and enforced by not having a
-field for it. Research content is user-confidential: not used for training, not shared, deletable.
-Project deletion calls Boltz `delete_data` for the project's runs so deletion propagates upstream.
+- **AuthN/Z.** Argon2id, opaque tokens hashed at rest, httpOnly SameSite=Lax
+  cookies via Next rewrite, double-submit CSRF. Every session scoped to its
+  owner; no cross-user reads.
+- **Secrets.** `.env`, gitignored. `BOLTZ_API_KEY`, `BOLTZ_LIVE_API_KEY`,
+  `OPENAI_API_KEY`, `MONGODB_URI`, `NCBI_API_KEY`, `SESSION_SECRET`. Never sent
+  to the browser, never logged, never placed in LLM context.
+- **Prompt injection.** A paper abstract or UniProt description is attacker-
+  controllable in principle. All tool output is delimited as data; the system
+  prompt forbids treating it as instruction; no tool can escalate privilege; no
+  tool executes code or shells out; paid actions need human confirmation
+  regardless of what any text says.
+- **PII.** No patient data is collected or accepted. The product states this.
+  If a user pastes something that looks like patient identifiers, the UI warns.
+  Sequences are not PII.
+- **Live vs test.** `livemode` is surfaced on every result. Test-mode results
+  are labelled as synthetic in the UI.
 
 ---
 
 ## 12. Reliability & observability
 
-**Error handling.** Every external call has an explicit timeout (10 s science sources, 30 s Boltz
-submit, 60 s result pages). Retries use jittered exponential backoff on 429/5xx/transport only,
-never on 4xx. Circuit breaker per external service: open → degraded responses labelled as such.
-
-**Idempotency.** Run submission (unique key), harvest (cursor), mirroring (content-addressed keys —
-re-mirroring overwrites identically).
-
-**Logging.** Structured JSON, correlation id per request propagated into worker jobs. Secrets and
-full sequences redacted from logs (a sequence is the user's research output, not a debug field).
-
-**Tracing.** OpenTelemetry across API and worker. LLM traces via the Agents SDK, **opt-in** (§11),
-grouped with `with trace("...")` per user turn and tagged with the project id.
-
-**Metrics.** Run submission/success/failure rates; harvest success and **mirror-before-expiry
-success rate** (the one that silently destroys data if it rots); **reconciler scan lag** (age of the
-oldest unfinished run since its last poll) and scan duration; change-stream health and resume-token
-staleness; external-service error rates and circuit state; spend per project per day; agent tokens, cost and
-guardrail trip rate; SSE connection count.
-
-**Change-stream failure mode.** A change stream can drop or fall behind. It is treated as an
-*optimisation for liveness, not a source of truth*: on SSE connect the client is always sent the
-current run state read directly from MongoDB, and the stream only pushes subsequent deltas. If the
-stream dies, the API resumes it from its resume token, and clients fall back to a 15 s re-read. So
-a broken change stream makes progress updates slower, never wrong or missing.
-
-**Alerts.** Any mirror failure after retries. Reconciler scan lag > 30 min. Spend > 80% of a project
-budget, and any spend anomaly day-over-day. Guardrail trip rate > 20% (prompt regression).
-Circuit open > 5 min.
-
-**Backups.** Atlas continuous backup, 7-day PITR. R2 versioning on. Restore drill once per
-milestone — a backup nobody has restored is a hypothesis.
+- Idempotency keys on every engine submission; retries safe.
+- Per-source timeouts; degraded sources reported, never silently dropped.
+- Reconciler resumes on restart; no in-memory job state.
+- Structured JSON logs with request id and session id; **secrets and full
+  tool payloads never logged**.
+- LLM traces: prompt hash, tool calls, token counts, cost, latency per turn,
+  stored with the message for later audit.
+- Metrics: turn latency, tool error rate by tool, spend per session, citation
+  verification failure rate, job success rate.
 
 ---
 
 ## 13. Testing strategy
 
-| Layer | What | Runs |
+| Level | What | CI |
 |---|---|---|
-| Unit | `ranking` (pure — property tests: monotonicity in each weight, correct inversion of `min_interaction_pae`, correct weight redistribution when `ipsae_min` is missing, `generic` results excluded), cost maths, budget arithmetic, claim-lint | CI, every push |
-| Contract | `boltz_adapter` against recorded fixtures of every response shape; **fails loudly on an SDK field rename** | CI |
-| Integration | API + Mongo (single-node replica set) via testcontainers; science sources via recorded HTTP cassettes; full reconcile→harvest cycle against a fake engine, including mid-harvest crash and resume | CI |
-| AI evals | §7 eval plan: golden path, guardrails (both directions), tool selection, grounding | CI on prompt/tool changes; nightly |
-| E2E | Playwright: full 7-step workflow against a seeded KPC-2 project with a stubbed engine; Mol* renders; export downloads and re-parses | CI on PR to main |
-| Motion QA | `motion-check.mjs` per `motion-web`, screenshots reviewed | before any UI merge |
-| Ship gate | `ship-verify` on the production build, then again on the live URL | before every push/deploy |
+| Unit | numbering, budget arithmetic, ranking, citation verifier, schema validation | yes |
+| Integration | engine clients against recorded fixtures + test-mode keys; sources against fixtures | yes (`make test`, inside compose) |
+| E2E | Playwright: sign-in → research question → fold → screen → export | yes |
+| AI evals | the six suites in §7 | yes, on prompt/model change |
+| Smoke | whole-app crawl, 2 viewports | pre-push |
+| Motion | `motion-check.mjs` | pre-push |
 
-Coverage is not a target; the critical paths (harvest, budget, ranking, guardrails) are tested to
-their failure modes, including the unhappy ones.
+**Known trap, recorded:** a host-run `pytest` exits 0 while silently skipping
+~200 integration tests, because Colima keeps MongoDB's port inside its VM.
+`make test` is the only backend result worth quoting.
 
 ---
 
 ## 14. Deployment & environments
 
-**Railway layout.** One Railway **project**, `biostruct`, with two **environments**
-(`staging`, `production`). Each environment holds:
-
-| Railway service | What it runs | Notes |
-|---|---|---|
-| `api` | `uvicorn` FastAPI | public domain, holds the SSE connections |
-| `worker` | the reconciler loop | no domain; must not sleep |
-| `structures` (Bucket) | mmCIF, archives, exports | S3-compatible; creds from `railway bucket credentials` |
-
-Config lives in source control as Railway IaC (`.railway/railway.py`), so environments are
-reproducible rather than hand-clicked. Variables are set per environment.
-
-| Env | Web | API + worker | Data |
-|---|---|---|---|
-| dev | `next dev` | `uvicorn --reload`, worker process | local Mongo as a **single-node replica set** (docker compose; required for change streams), structures on **local disk** — no cloud account needed |
-| staging | Vercel preview per PR | Railway `staging` environment | Atlas free cluster, staging Bucket |
-| prod | Vercel | Railway `production` environment (`api` + `worker`) | Atlas M10, production Bucket |
-
-**CI/CD.** GitHub Actions: lint (ruff, eslint) → typecheck (mypy strict, tsc) → unit → contract →
-integration → evals → build → E2E → deploy. `main` is protected; the `ship-verify` gate must pass.
-Railway deploys from GitHub on merge to `main`; a deploy is only reported successful after observing
-`SUCCESS` for that specific deployment id, never on command exit alone.
-
-**Credentials.** Only two are required to build: `BOLTZ_API_KEY` and `OPENAI_API_KEY`. Everything
-else has a working local default or is deploy-only. See [docs/credentials.md](docs/credentials.md).
-
-**Env vars** (full list in `.env.example`): `BOLTZ_API_KEY`, `BOLTZ_WORKSPACE_ID`, `OPENAI_API_KEY`,
-`OPENAI_REALTIME_MODEL`, `OPENAI_AGENTS_DISABLE_TRACING`, `MONGODB_URI`,
-`STORAGE_BACKEND`, `STORAGE_LOCAL_PATH`, `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`,
-`S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `SESSION_SECRET`,
-`NCBI_EMAIL`, `NCBI_API_KEY`, `APP_BASE_URL`, `DEFAULT_PROJECT_BUDGET_USD`.
-
-**Monthly cost estimate (v1 scale).**
-
-| Item | Cost |
-|---|---|
-| Vercel Hobby/Pro | $0–20 |
-| Railway (`api` + `worker`, usage-based) | ~$10–15 |
-| Railway Bucket (50 GB) | a few $ |
-| Atlas M10 | ~$9 (free cluster in dev/staging) |
-| **Infra total** | **~$20–45/month** |
-| OpenAI (agents + modest voice) | ~$30–50/month |
-| **Boltz, during the build** | **$0** — the whole build fits inside 200 free predictions/month (§2) |
-| Boltz, real research use after launch | ~$0.05/design; a serious 10,000-design campaign ~$500 |
-
-Infra can also sit near $0 while we build: Atlas free cluster and R2 free tier, Vercel Hobby and a
-single small Fly machine. The paid tiers above are for launch, not development.
+- **Dev:** API native on :8000, web on :3002 (port 3000 belongs to another
+  project and must not be touched), Mongo in Colima.
+- **Prod:** Railway (API) + Vercel (web); both CLIs already authenticated, both
+  services `$PORT`-aware.
+- **Env vars:** as §11, plus `APP_BASE_URL`, `API_ORIGIN`.
+- **CI/CD:** push to `main` after `ship-verify` passes; deploy; re-run smoke and
+  critical flows against the live URL.
+- **Cost:** hosting ~$5–20/mo; OpenAI usage-based; Boltz usage-based with
+  per-session ceiling.
 
 ---
 
 ## 15. Milestones
 
-Each is independently shippable, ends green, and gets pushed (per `git-cadence`).
+Each ships green and pushed on its own.
 
-| # | Milestone | Acceptance criteria |
+| # | Feature | Acceptance |
 |---|---|---|
-| **M0** ✅ | Foundations | Monorepo (`apps/web`, `apps/api`, `packages/`), `uv` + Python 3.12, docker-compose for Mongo as a single-node replica set, CI green, auth + projects CRUD, deployed skeleton at a real URL |
-| **M1** ✅ | `boltz_adapter` + contract tests | `DesignEngine` implemented; fixtures for every response shape; **the whole path exercised first with a free test-mode key (`sk_bc_ws_test_`), then a real 10-design run against a live key succeeds end to end**; cost estimate matches the published tiers; **`auth.me()` + `admin/usage` called first to confirm the free-tier allowance and remaining balance before spending anything.** Budget: ≤50 predictions. *This is the riskiest milestone and it is first on purpose.* |
-| **M2** ✅ | Target discovery | F1–F3: UniProt/RCSB/PubMed with caching, rate limits and degraded-mode banner; target persisted with evidence; epitope residues selectable by number |
-| **M3** ✅ | Design runs + reconciler | F4–F7, F15–F17: estimate → confirm → submit → poll → **harvest with mirroring**; SSE progress; crash-resume proven in an integration test |
-| **M4** 🔶 | Structures + ranking | F8–F10: Mol* viewer with chain colouring and epitope highlight; deterministic ranking with editable weights; per-candidate explanation with percentiles |
-| **M5** | Agents | F12, F14: orchestrator + 4 specialists as tools, Scientific Review as output guardrail, `MongoDBSession`; guardrail evals at S4 |
-| **M6** | Export + report | F11: FASTA/mmCIF/CSV/PDF bundle with provenance; limitations first; re-parse test green |
-| **M7** | Voice | F13: ephemeral token, WebRTC, server-side tool relay with authz; or the documented WebSocket fallback if measurement says so |
-| **M8** | Polish & hardening | `motion-web` pass across every page, WCAG 2.2 AA audit, load test, restore drill, full `ship-verify` on prod |
-
-**M1 is first because it is the only milestone that can invalidate the architecture.** If the live
-API behaves differently from its generated types, we want to know in week one, not week six.
+| **M1** | Boltz `structure-and-binding` client | Folds a sequence in test mode; estimate→submit→poll→persist; integration tests pass |
+| **M2** | `library-screen` + `adme` clients | Screen returns ranked metrics + ADME; filters reported; positive-control eval passes |
+| **M3** | `small-molecule/design` client | Returns novel SMILES with metrics |
+| **M4** | Europe PMC source + citation verifier | Invented citations provably stripped; unit tests |
+| **M5** | ChEMBL source + curated library | Library assembles with positive control present |
+| **M6** | Session/message/artifact data model + migration | v1 projects readable; indexes in place |
+| **M7** | Agent orchestrator + tool layer + SSE streaming | Chat turn streams; tool calls visible; limits enforced |
+| **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
+| **M9** | Workbench UI: thread + artifact canvas + Mol\* + molecule table | Full flow by walkthrough, no JS errors |
+| **M10** | Landing page: the story, cited, with motion | motion-check 4/4; CLS ≤ 0.1 |
+| **M11** | Export bundle | CIF + SMILES + metrics + citations download |
+| **M12** | Evals in CI, ship-verify, deploy, live verification | All suites green; live smoke clean |
 
 ---
 
 ## 16. Risks & open questions
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| `boltz-api` is Stainless-generated and will churn; there is **no published OpenAPI spec** and the SDK's own GitHub repo 404s | Medium | Pin `==0.50.0`, single adapter, contract tests against recorded fixtures. Reference docs do exist at `api.boltz.com/docs`; ask Boltz for a changelog. |
-| BoltzProt-1's real-world output quality is unverified by us | High | M1 runs a real campaign and we *look at the results* before building on top. Benchmark claims in research are Boltz's own. |
-| A bug or typo spends real money — `num_proteins` accepts up to 1,000,000 | Medium | Confirmed estimate, per-project budget, Boltz workspace spending limit, UI cap on `num_proteins`. (The build itself fits the free tier.) |
-| The 200/month free tier may not apply to **API** usage, only Boltz Lab | Medium | Verified in M1 with the free `auth.me()` / `admin/usage` calls, before any sizeable run |
-| Hosted affinity may not correspond to the written pose ([research §1](docs/research.md)) | Medium | Never present affinity as predicted potency; label as model score |
-| Voice tool relay complexity | Medium | WebSocket fallback designed in; voice is M7, not on the critical path |
-| Over-claiming by the assistant damages scientific credibility | **High** | Scientific Review as a non-bypassable guardrail + claim-lint + limitations-first reports |
-| African institutions may be unable to send target data to a US API | Medium | `DesignEngine` seam preserved for on-prem BoltzGen; stated honestly as a v2 path |
-| Mol* bundle size on constrained bandwidth | Low | Lazy chunk; non-WebGL fallback view |
-| Railway's managed Mongo may not be a replica set, so change streams would fail there | Low | We use Atlas, which always is. Checked in M0; consolidating onto Railway is an option, not a dependency |
-| ~~Which result chain is the designed binder~~ | **Resolved** | A live run settled it: a result's entities contain only the designed binder, and the target keeps its submitted chain id. Candidates now store `binder_chain_ids` and `target_chain_ids` ([observed](docs/boltz-api-observed.md)) |
-| ~~Test mode returns a stub CIF~~ | **Resolved** | A live 261 KB ModelCIF with 2,871 atoms is kept as a permanent viewer fixture, so M4 needs no further paid run |
-| **Relative scores read as quality.** Live `binding_confidence` is ~1e-6 where test mode is ~0.7, and within-run normalisation makes the best of a hopeless field score near 1.0 | **High** | Resolved in ADR-030: absolute bands reported separately, `no_predicted_binding` overrides rank, explanations lead with the absolute value |
-| ~~Author residue numbering vs design indices~~ | **Resolved in M2** | Three systems, not two: UniProt position, PDB author number and design index all differ for KPC-2. Handled in `sources/residues.py`, which refuses rather than guesses, with 48 tests and [docs/residue-numbering.md](docs/residue-numbering.md) |
-
-### Resolved on approval (2026-11-11)
-
-| Question | Decision |
+| Risk | Mitigation |
 |---|---|
-| Name | **Biostruct** |
-| Repo visibility | **Public**, MIT licensed |
-| Hosting | **Railway** (backend + Bucket) + Vercel (web) |
+| **Boltz DNS fails on the dev machine** (`SERVFAIL` for boltz.bio; 8.8.8.8 resolves it) | Blocks M1–M3 testing locally. Change resolver, or develop against test-mode fixtures and verify on deploy |
+| **Pricing unpublished** — a large screen could be costly | `estimate-cost` mandatory; default 250-molecule cap; hard session ceiling |
+| **Europe PMC endpoint shape unverified** (docs wouldn't load) | Confirm against official docs in M4 before writing the client |
+| **OpenAI model IDs uncertain** — aggregators disagree | Verify against OpenAI's official docs before writing agent code; isolate behind one module |
+| **Protein–protein affinity support ambiguous** (open-source docs say unsupported; hosted API documents `protein_protein_binding`) | Run once, observe, do not claim it until seen |
+| **Agent overclaims** | Verifier + caveat test + refusal eval suite |
+| **Scope vs deadline** | M1–M9 are the demo; M10–M12 compress first |
 
-### Still open — not blocking M0
-
-Resolved since approval:
-- ~~Auth for v1~~ → **email + password**, Argon2id, no social sign-in (ADR-021).
-- ~~Deployment region~~ → **`europe-west4`** (Amsterdam), best average latency to African users of
-  Railway's options (ADR-022).
-- ~~Licence for generated outputs~~ → settled in [`NOTICE`](NOTICE): designs belong to the researcher.
-
-Genuinely still open:
-1. **Boltz allowance** — still unanswered, and now known to be *unanswerable with this key*:
-   `/admin/usage` returns 403 for a workspace key and needs an **admin** key, or the console UI.
-   Not blocking: development runs on an unbilled test key.
-2. **Password reset email** — email + password means we need a sender (Resend or Postmark) for
-   reset links. Deferred past M0; an admin can reset in the meantime. Must land before external
-   users.
+**Open questions for the user.**
+1. Name: **Dawa**, Ewé, or your own?
+2. Default session budget — $25, or lower for a public demo?
+3. Public demo: shared test-mode key (free, synthetic results, clearly labelled)
+   or live key with a hard ceiling?
 
 ---
 
-## 17. Decisions log (ADRs)
+## 17. Decisions log
 
-| # | Date | Decision | Why | Alternatives rejected |
+| # | Date | Decision | Why | Alternatives |
 |---|---|---|---|---|
-| 001 | 2026-11-10 | **BoltzProt-1 via hosted Boltz API** for de novo design | Boltz-2 cannot design binders; BoltzGen needs an A100 + 39 GB weights | Self-hosted BoltzGen; NVIDIA NIM (no design model) |
-| 002 | 2026-11-10 | Keep a `DesignEngine` interface with a `BoltzGenLocalEngine` stub | On-prem is a real requirement for some African institutions | Hard-coding the hosted client |
-| 003 | 2026-11-10 | **No queue and no Redis.** A MongoDB scan loop replaces the broker; a TTL collection replaces the cache; change streams replace pub/sub | Our only background work is "poll runs that are in progress", which is a scan, not a queue — and Mongo already holds that truth. A dropped queue message would hang a run forever; a scan retries by construction. Removes a whole service | Celery (brief's suggestion), ARQ + Redis (earlier draft of this document) |
-| 004 | 2026-11-10 | **Reconciler pattern** — the job lives in Boltz; we poll and harvest | Agent tools must return in seconds; no request may block on a job | Worker owning the computation; synchronous `client...run()` |
-| 005 | 2026-11-10 | **Mirror every artifact to object storage on completion** | `url_expires_at` — Boltz URLs are presigned and expire, measured at ~30 minutes | Storing Boltz URLs (data loss) |
-| 006 | 2026-11-10 | **Agents-as-tools, not handoffs** | The orchestrator must compose specialist output, which a handoff loses | Handoff topology; one mega-agent |
-| 007 | 2026-11-10 | **Scientific Review as an output guardrail**, not a tool | It must be non-bypassable; a tool can be skipped by the model | Review agent as a tool |
-| 008 | 2026-11-10 | **Ranking is pure, deterministic code** — no LLM | A ranking a researcher cannot reproduce is not defensible in a paper | LLM-scored ranking |
-| 009 | 2026-11-10 | **MongoDB**, per the brief | Fits verbatim nested Boltz payloads; `MongoDBSession` removes a bespoke chat store | Postgres + JSONB |
-| 010 | 2026-11-10 | **Human confirmation on every spend**; models never spend | A model loop could empty the account | Agent-initiated runs |
-| 011 | 2026-11-10 | **Agents SDK tracing off by default** for self-hosted | Default-on egresses unpublished research to OpenAI | Accepting the default |
-| 012 | 2026-11-10 | Pin `boltz-api==0.50.0` behind one adapter with contract tests | No public API reference; generated SDKs churn | Floating version |
-| 013 | 2026-11-10 | **Python 3.12 via `uv`** | `openai-agents` needs ≥3.10; system Python is 3.9 | System Python; Poetry |
-| 014 | 2026-11-10 | Project schema is **one disease → many targets** | Isolates commonly carry multiple carbapenemases | One target per project |
-| 015 | 2026-11-11 | **`StorageBackend` interface; local disk in dev, R2 in prod** | R2 needs a subscription checkout before an API token can be created. Development must not be gated behind a payment flow — a contributor should be able to build everything with two API keys and Docker | R2 everywhere |
-| 016 | 2026-11-11 | **Develop against Boltz test-mode keys (`sk_bc_ws_test_`); live keys only for M1 proof and the demo** | Test keys are documented as unbilled with no GPU usage, so the real request/response path can be exercised for free and without GPU waits. Keep fixtures too, for determinism and offline CI. Ranking is validated only against real results, never synthetic ones | Live keys throughout (slow, costly); fixtures only (never proves the real path) |
-| 021 | 2026-11-11 | **Email + password auth, Argon2id, server-side sessions. No social sign-in** | User's choice. Keeps v1 dependency-free of an identity provider and works for researchers without Google accounts, which matters for the target audience. Cost: we own password security, so Argon2id, a password policy, rate limiting and uniform failure responses are mandatory, and password reset needs an email sender (open question 5) | Magic link (earlier draft; needs an email sender on day one); Google OAuth |
-| 022 | 2026-11-11 | **Railway region `europe-west4`** (Amsterdam) | Most African internet traffic transits Europe, and Amsterdam peers with the major African subsea cables, so it gives the best average latency to African users of Railway's options. Revisit if Railway adds an African region | `us-east`/`us-west` (adds a transatlantic hop); `asia-southeast1` |
-| 030 | 2026-11-11 | **Report an absolute binding band alongside the relative score, and never let rank alone produce an encouraging verdict** | Live `binding_confidence` came back ~1e-6 against ~0.7 in test mode. Within-run normalisation then described a design with a two-in-a-million predicted binding probability as "promising". Rank answers "which first", the band answers "is any of this worth anything" | Score alone; inventing a calibrated scientific cutoff |
-| 029 | 2026-11-11 | **Ranking normalises min-max within the run, and a constant metric maps to 0.5 and is flagged** | Absolute metric scales are not comparable across targets, so a score means "relative to this run". When every candidate shares a value, mapping it to 0 punishes all and 1 rewards all; the midpoint plus an explicit flag is honest about it not discriminating | Global normalisation; dropping constant metrics silently |
-| 027 | 2026-11-11 | **Budget reservation is a compare-and-set that pins the values it read**, and money is stored quantized to 4 decimal places | Two simultaneous submissions must not both fit in the same remaining budget. Conditioning on re-derived strings broke when a document held `"0"` where we would write `"0.0000"`, so the filter pins the raw values actually read | Read-then-write; comparing re-formatted amounts |
-| 028 | 2026-11-11 | **A failed, stopped or unsubmitted run releases its reservation and settles at zero** | Charging a researcher for a run that produced nothing would be both wrong and invisible | Settling every run at its estimate |
-| 025 | 2026-11-11 | **Residue numbering gets its own module that refuses rather than guesses**, and the epitope API takes UniProt positions and author numbers in separate fields | Three numbering systems genuinely differ for the reference target. Every shortcut (offset, pass-through, conflating UniProt with author numbers) produces a completed run aimed at the wrong surface with no error. Identity verification makes the mapping provable | A single residue field; an offset calculation; trusting the caller to convert |
-| 026 | 2026-11-11 | **Degraded sources are recorded on the target, not just in the response** | A researcher reading "no literature" months later must be able to tell a genuine absence from a transient PubMed outage | Returning degradation only at request time |
-| 023 | 2026-11-11 | **Adapter written against observed API behaviour, not the SDK's declared types**, with captured fixtures as contract tests and `scripts/verify_boltz.py` for live re-verification | A live run showed the SDK's types wrong in three ways: results carry no `type` discriminator, `ipsae_min` can be absent entirely, and pagination is cursor-based not offset-based. Each would have surfaced as silently wrong data rather than an error | Trusting the generated types; using the SDK's blocking `run()` helper |
-| 024 | 2026-11-11 | **Carry `livemode` from the run to the UI, and refuse to export test-mode results as findings** | Test-mode runs return synthetic metrics and a 522-byte stub CIF. Presenting those as science is the single most damaging thing this product could do | Treating test and live results alike |
-| 018 | 2026-11-11 | **Railway for the backend** (one project, `staging` + `production` environments, `api` + `worker` services), Vercel for the web app | User's choice. Long-lived processes suit SSE and the reconciler loop; IaC in `.railway/` keeps environments reproducible | Fly.io (earlier draft); serverless |
-| 019 | 2026-11-11 | **Railway Bucket replaces Cloudflare R2** for object storage | Same project as the services, credentials from `railway bucket credentials`, no extra vendor and no subscription checkout gate. The `StorageBackend` interface means this is swappable | Cloudflare R2; AWS S3 |
-| 020 | 2026-11-11 | **MongoDB stays on Atlas**, not Railway's managed Mongo | Change streams need a replica set; Atlas always is one. Railway's is a single container with replica-set support unverified | Railway managed Mongo |
-| 017 | 2026-11-11 | **All money handled as `Decimal`**, and the startup check asserts the key's `mode` matches the environment | Verified live: the API returns costs as strings (`"0.0500"`) and reports `mode: "test"\|"live"` on `auth/me`. Float money rounds wrongly; a live key in dev or a test key in prod are both silent, expensive mistakes | Floats; trusting the operator to use the right key |
+| 1 | 2026-11-17 | Scope = Steps 2 and 3 only | The only steps a computer can do; everything else is lab or clinic | Full pipeline (impossible), Step 2 only (too thin) |
+| 2 | 2026-11-17 | Boltz as sole science engine | Covers both steps, usable licence, real API, lifecycle already built | AlphaFold 3 (no API, non-commercial), Chai-2 (no public API), DiffDock+AlphaFold (two vendors, less capability) |
+| 3 | 2026-11-17 | Drop AlphaFold DB | RCSB covers measured structures; users' proteins are mutants, which no precomputed DB holds | Keep as free-first lookup |
+| 4 | 2026-11-17 | OpenAI for the agent | User's decision; key provisioned | Claude (house default) |
+| 5 | 2026-11-17 | Agent workbench replaces the wizard | v1's step rail made a complex workflow feel complex; a thread lets the agent carry the expertise | Keep wizard, add agent panel |
+| 6 | 2026-11-17 | Spend gate as code, not prompt | A model must never be the thing standing between a user and a bill | Trust the prompt |
+| 7 | 2026-11-17 | Citation verifier as code, not prompt | Makes fabricated references structurally impossible rather than discouraged | Prompt instruction only |
+| 8 | 2026-11-17 | No toxicity claims anywhere | Nothing in the stack predicts toxicity; real discovery doesn't at this stage either | Imply it via "ADME" |
+| 9 | 2026-11-17 | Keep v1 auth, budget ledger, reconciler, Mol\*, numbering | Tested, working, and the hardest parts to get right | Rebuild from scratch |
