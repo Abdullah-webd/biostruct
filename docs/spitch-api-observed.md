@@ -196,3 +196,24 @@ asks and is answered in their own language throughout.
 Papers are written in English, so citation titles and abstracts stay English
 and are labelled as such. We translate the agent's *explanation* of a paper,
 never fake a translated title.
+
+---
+
+## Scope correction, 2026-11-17
+
+The loop above was measured and works, but the product **does not translate
+output**. Voice is deliberately asymmetric:
+
+| Direction | What happens |
+|---|---|
+| **Asking** | Speak in any of the six languages → transcript shown for review → translated to English → agent |
+| **Answering** | Normal English text. No translation. |
+| **Read-aloud** | Optional, per message, on request |
+
+The reason: these are researchers, and they read English fluently. The friction
+is in *composing* a question, not in reading a result. Translating scientific
+prose into Yorùbá would cost precision and carry an implication — that these
+users need things simplified — that is both wrong and insulting.
+
+So the outbound translation and diacritics calls stay in this document as
+verified capability, and stay out of the product.
