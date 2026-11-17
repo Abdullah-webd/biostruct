@@ -88,9 +88,7 @@ class TestPayload:
         This one does neither, and sending ``model`` makes the union validator
         demand a ``target_profile`` field that does not exist.
         """
-        body = BoltzHostedEngine._screen_payload(
-            ScreenSpec(target=TARGET, molecules=(AVIBACTAM,))
-        )
+        body = BoltzHostedEngine._screen_payload(ScreenSpec(target=TARGET, molecules=(AVIBACTAM,)))
         assert "model" not in body
         assert "input" not in body
         assert set(body) == {"target", "molecules", "molecule_filters"}
@@ -108,32 +106,22 @@ class TestPayload:
         """Omitting the pocket lets the model guess. When step 2 found the
         catalytic site, guessing is strictly worse."""
         target = ScreenTarget(entities=(("A", KPC),), pocket_residues={"A": (70, 69)})
-        body = BoltzHostedEngine._screen_payload(
-            ScreenSpec(target=target, molecules=(AVIBACTAM,))
-        )
+        body = BoltzHostedEngine._screen_payload(ScreenSpec(target=target, molecules=(AVIBACTAM,)))
         assert body["target"]["pocket_residues"] == {"A": [69, 70]}
 
     def test_the_filter_level_defaults_to_recommended(self) -> None:
-        body = BoltzHostedEngine._screen_payload(
-            ScreenSpec(target=TARGET, molecules=(AVIBACTAM,))
-        )
-        assert body["molecule_filters"] == {
-            "boltz_smarts_catalog_filter_level": "recommended"
-        }
+        body = BoltzHostedEngine._screen_payload(ScreenSpec(target=TARGET, molecules=(AVIBACTAM,)))
+        assert body["molecule_filters"] == {"boltz_smarts_catalog_filter_level": "recommended"}
 
     def test_adme_wraps_in_input_and_names_its_model(self) -> None:
         body = BoltzHostedEngine._adme_payload(AdmeSpec(molecules=(AVIBACTAM,)))
         assert body["model"] == "adme-v1"
-        assert body["input"]["molecules"] == [
-            {"smiles": AVIBACTAM.smiles, "id": "avibactam"}
-        ]
+        assert body["input"]["molecules"] == [{"smiles": AVIBACTAM.smiles, "id": "avibactam"}]
 
 
 class TestScreenJobParsing:
     def test_a_real_captured_job_parses(self) -> None:
-        job = BoltzHostedEngine.parse_screen_job(
-            fixture("screen_retrieve_succeeded.json")
-        )
+        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
         assert job.status is JobStatus.succeeded
         assert job.is_terminal
         assert job.job_id.startswith("sm_scr_")
@@ -143,9 +131,7 @@ class TestScreenJobParsing:
 
     def test_progress_counts_what_the_library_lost(self) -> None:
         """Filtered molecules vanish from results; this count is the only trace."""
-        job = BoltzHostedEngine.parse_screen_job(
-            fixture("screen_retrieve_succeeded.json")
-        )
+        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
         assert job.progress.total == 3
         assert job.progress.screened == 3
         assert job.progress.failed == 0
@@ -167,9 +153,7 @@ class TestScreenJobParsing:
         assert job.progress.percent_complete == 100
 
     def test_an_unknown_status_is_not_treated_as_terminal(self) -> None:
-        job = BoltzHostedEngine.parse_screen_job(
-            {"id": "sm_scr_x", "status": "reticulating"}
-        )
+        job = BoltzHostedEngine.parse_screen_job({"id": "sm_scr_x", "status": "reticulating"})
         assert job.status is JobStatus.running
         assert not job.is_terminal
 
@@ -177,9 +161,7 @@ class TestScreenJobParsing:
 class TestScreenResultParsing:
     def test_a_real_results_page_parses(self) -> None:
         page = fixture("screen_results_page.json")
-        results = [
-            BoltzHostedEngine.parse_screen_result(row) for row in page["data"]
-        ]
+        results = [BoltzHostedEngine.parse_screen_result(row) for row in page["data"]]
         assert len(results) == 2
         first = results[0]
         assert first.result_id
@@ -260,9 +242,7 @@ class TestTestModeIsNotRealData:
 
     def test_the_job_says_it_is_not_live(self) -> None:
         """The one honest signal, and what the product must branch on."""
-        job = BoltzHostedEngine.parse_screen_job(
-            fixture("screen_retrieve_succeeded.json")
-        )
+        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
         assert job.livemode is False
 
     def test_adme_may_return_fewer_molecules_than_were_sent(self) -> None:
@@ -346,12 +326,11 @@ class TestRequests:
     async def test_adme_is_cheaper_than_screening(self) -> None:
         """Which is why it is the way to triage a library before paying to
         screen it."""
+
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=fixture("adme_estimate.json"))
 
-        est = await engine(handler).estimate_adme_cost(
-            AdmeSpec(molecules=(AVIBACTAM,))
-        )
+        est = await engine(handler).estimate_adme_cost(AdmeSpec(molecules=(AVIBACTAM,)))
         assert est.unit_usd == Decimal("0.0100")
         assert est.unit_usd < Decimal("0.0250")
 
@@ -390,9 +369,7 @@ class TestRequests:
             calls.append(after)
             return httpx.Response(200, json=pages[0] if after is None else pages[1])
 
-        got = [
-            r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")
-        ]
+        got = [r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")]
         assert got == ["r1", "r2"]
         assert calls == [None, "r1"]
 
@@ -408,9 +385,7 @@ class TestRequests:
                 },
             )
 
-        got = [
-            r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")
-        ]
+        got = [r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")]
         assert got == ["r1"]
 
     @pytest.mark.anyio
@@ -432,13 +407,9 @@ class TestRequests:
             after = request.url.params.get("after_id")
             return httpx.Response(200, json=pages[0] if after is None else pages[1])
 
-        got = [
-            r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")
-        ]
+        got = [r.result_id async for r in engine(handler).iter_screen_results("sm_scr_x")]
         assert got == ["r1", "r2"]
 
     @pytest.mark.anyio
     async def test_the_hosted_engine_satisfies_the_screening_seam(self) -> None:
-        assert isinstance(
-            engine(lambda r: httpx.Response(200, json={})), ScreeningEngine
-        )
+        assert isinstance(engine(lambda r: httpx.Response(200, json={})), ScreeningEngine)
