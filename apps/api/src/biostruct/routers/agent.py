@@ -14,8 +14,11 @@ retried without them retyping it.
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -47,6 +50,7 @@ from biostruct.deps import (
     SourcesDep,
 )
 from biostruct.models.conversation import (
+    ArtifactKind,
     Block,
     MessageCreate,
     ResearchSession,
@@ -351,6 +355,81 @@ async def get_artifact_structure(
             "content-disposition": f'inline; filename="{artifact_id}.cif"',
             "cache-control": "private, max-age=3600",
         },
+    )
+
+
+#: Columns in the exported shortlist, in the order a bench scientist reads
+#: them. Predicted and measured stay in separate columns and say so in the
+#: header, because a spreadsheet outlives the screen that produced it and
+#: nobody will remember which number came from where.
+CSV_COLUMNS = (
+    ("rank", "rank"),
+    ("name", "name"),
+    ("external_id", "chembl_id"),
+    ("smiles", "smiles"),
+    ("is_control", "is_positive_control"),
+    ("binding_confidence", "binding_confidence_PREDICTED"),
+    ("structure_confidence", "structure_confidence_PREDICTED"),
+    ("known_potency_nm", "ki_nM_MEASURED"),
+    ("lipophilicity", "lipophilicity_PREDICTED"),
+    ("permeability", "permeability_PREDICTED"),
+    ("solubility", "solubility_PREDICTED"),
+)
+
+
+@router.get("/{session_id}/artifacts/{artifact_id}/molecules.csv")
+async def export_molecules(
+    session_id: str,
+    artifact_id: str,
+    user: CurrentUser,
+    conversations: ConversationsDep,
+) -> Response:
+    """The ranked shortlist, as a file to take to a laboratory.
+
+    This is the product's actual output. It carries its own caveats in a
+    header comment, because the moment it leaves the screen it stops being
+    accompanied by anything that explains it.
+    """
+    artifacts = await conversations.list_artifacts(session_id, user_id=user.id)
+    found = next((a for a in artifacts if a.id == artifact_id), None)
+    if found is None or found.kind is not ArtifactKind.molecule_set:
+        raise errors.not_found("Molecule set")
+
+    rows = found.payload.get("results") or []
+    livemode = found.payload.get("livemode") is True
+    buffer = io.StringIO()
+
+    buffer.write(f"# {found.title}\n")
+    buffer.write(f"# exported {datetime.now(UTC).isoformat()}\n")
+    buffer.write(
+        "# Columns marked PREDICTED are model output, not measurements. "
+        "Columns marked MEASURED come from ChEMBL assay records.\n"
+    )
+    buffer.write(
+        "# These are computational predictions for laboratory testing, not evidence "
+        "of therapeutic effect. Nothing here assesses toxicity or safety.\n"
+    )
+    control_rank = found.payload.get("control_rank")
+    if control_rank:
+        buffer.write(
+            f"# A known inhibitor of this enzyme class ranked #{control_rank}. "
+            "If that is not near the top, treat the ranking as unreliable.\n"
+        )
+    if not livemode:
+        buffer.write(
+            "# TEST MODE: the engine substituted its own molecules. These rows are "
+            "NOT the submitted library and the scores are meaningless.\n"
+        )
+
+    writer = csv.writer(buffer)
+    writer.writerow([header for _, header in CSV_COLUMNS])
+    for row in rows:
+        writer.writerow([row.get(key, "") for key, _ in CSV_COLUMNS])
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"content-disposition": f'attachment; filename="antidote-{artifact_id[:8]}.csv"'},
     )
 
 
