@@ -585,12 +585,20 @@ Each ships green and pushed on its own.
 | **M5** | ChEMBL source + curated library | Library assembles with positive control present — the control is chosen per Ambler class, ships in the repo so an outage cannot remove it, and carries its measured potency against the target so the run can judge itself |
 | **M6** | Session/message/artifact data model + migration | v1 projects readable and untouched; the migrated session keeps the project's `_id`; message order is a unique atomic `seq`; oversized tool results spill to storage; indexes in place |
 | **M7** | Agent orchestrator + tool layer + SSE streaming | Chat turn streams; tool calls visible; paid tools can only propose; step cap, per-tool timeout and heartbeat enforced; every answer passes the citation gate |
-| **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
-| **M9** | Workbench UI: thread + artifact canvas + Mol\* + molecule table | Full flow by walkthrough, no JS errors |
-| **M10** | Landing page: the story, cited, with motion | motion-check 4/4; CLS ≤ 0.1 |
-| **M11a** | Voice input: Spitch client, mic → reviewable transcript with detected language → English for the agent; optional per-message read-aloud; metered | A Yorùbá spoken question reaches the agent as correct English by walkthrough; nothing auto-sends; speech spend visible |
+| **M8** | Runner: a confirmed proposal becomes real work | ✅ Proposal → confirm → background run → artifact. Paid work cannot start without the researcher pressing it; the run outlives the request; structures are pulled into our storage before Boltz's link expires; a failure always ends somewhere a person can read |
+| **M9** | One surface: rail + thread + artifact canvas + Mol\* + molecule table | ✅ The v1 wizard is deleted. Full flow walked in a browser, no console errors, no overflow at 390px |
+| **M10** | Landing page: the story, cited, with motion | ✅ motion-check 6/6 sections, CLS 0.005, reduced-motion content visible |
+| **M11a** | Voice input: Spitch, mic → reviewable transcript with detected language → English for the agent | ✅ Real Yorùbá audio reached the agent as correct English, with three mis-heard scientific terms repaired by the translation step. Nothing auto-sends |
 | **M11** | Export bundle | CIF + SMILES + metrics + citations download |
 | **M12** | Evals in CI, ship-verify, deploy, live verification | All suites green; live smoke clean |
+
+**The rebuild (2026-11-17).** M8–M11a were delivered as one rebuild rather than
+separately, after the first assembled product turned out to contain two
+competing front doors and none of the things the brief named. What changed:
+the wizard and its routes are gone, there is no budget in the interface, the
+product is called Antidote everywhere a person can see it, and the three
+capabilities the brief asked for — ask in your own language, get cited
+evidence, fold and screen — are each reachable from the one surface.
 
 ---
 
@@ -646,3 +654,8 @@ Each ships green and pushed on its own.
 | 23 | 2026-11-17 | Paid tools return a proposal; the dispatcher decides, not the prompt | A model must never be the thing between a researcher and a bill. A prompt instruction is a request; this is a code path that does not exist | Trust the system prompt; a confirmation flag on the call |
 | 24 | 2026-11-17 | History replays tool summaries, never payloads | Re-sending a 2000-molecule library on every step is how a session stops fitting and gets expensive. The summary is what the model reasoned from the first time | Replay whole payloads; summarise with a second model call |
 | 25 | 2026-11-17 | Every turn ends with a terminal SSE event; tools time out at 45s; the stream heartbeats | Found live: ChEMBL answered 500 with a 30-second hang, retries ran past the client's patience, and the browser was left holding a draft with no completion — indistinguishable from a turn still running | Rely on the connection closing; no per-tool timeout |
+| 26 | 2026-11-17 | One surface; the v1 wizard deleted rather than kept alongside | Two front doors make a researcher choose a mental model before they have done anything, and the brief was explicit that the forms were the problem. Its good parts — the Mol\* viewer, the ranked table — were absorbed, not thrown away | Keep both and let users choose; hide the wizard behind a flag |
+| 27 | 2026-11-17 | No money anywhere in the interface | The ledger still guards a run server-side, but a dollar counter in a researcher's eyeline made the tool read as a billing console rather than an instrument. This is research tooling, not a metered service | Show a per-session balance; show per-run cost |
+| 28 | 2026-11-17 | A run outlives the request that started it | Folding takes minutes. Holding an HTTP request open for them times out in every proxy, and cancelling on disconnect would abandon science that is already being billed | Synchronous run; client-driven polling that starts the work |
+| 29 | 2026-11-17 | Proposals are stored on the message, not held in the turn | Found by testing: the proposal vanished the moment the turn ended, so the confirm button could never be pressed. It also has to survive a reload — someone should be able to come back tomorrow and start the fold | Hold in client state for the turn |
+| 30 | 2026-11-17 | Test-mode results are never joined back to our library | Measured: in test mode the engine discards the ids and SMILES we submitted and substitutes its own, so matching them back would label a random molecule as our positive control and make a synthetic run look validated | Join on id regardless of mode |
