@@ -372,8 +372,9 @@ class Orchestrator:
             blocks.append(
                 Block(
                     kind=BlockKind.proposal,
-                    text=f"{proposal.title} — about ${proposal.estimate_usd:.2f}",
+                    text=proposal.title,
                     estimate_usd=proposal.estimate_usd,
+                    data=proposal.as_payload(),
                 )
             )
 

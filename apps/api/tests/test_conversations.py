@@ -552,3 +552,28 @@ class TestBlocks:
         first = [a.title for a in await repo.list_artifacts(session.id, user_id=USER)]
         second = [a.title for a in await repo.list_artifacts(session.id, user_id=USER)]
         assert first == second
+
+
+class TestSessionNaming:
+    """A rail full of "Untitled session" is a rail nobody can navigate."""
+
+    def test_a_short_question_becomes_the_title_verbatim(self) -> None:
+        from biostruct.routers.agent import _title_from
+
+        assert _title_from("  Fold KPC-2 for me  ") == "Fold KPC-2 for me"
+
+    def test_a_long_question_is_cut_on_a_word_boundary(self) -> None:
+        from biostruct.routers.agent import TITLE_CHARS, _title_from
+
+        title = _title_from(
+            "Our ICU has Klebsiella pneumoniae that no longer responds to meropenem, "
+            "what should we do about it"
+        )
+        assert len(title) <= TITLE_CHARS + 1
+        assert title.endswith("…")
+        assert not title.rstrip("…").endswith(" ")
+
+    def test_newlines_in_a_pasted_sequence_do_not_break_the_title(self) -> None:
+        from biostruct.routers.agent import _title_from
+
+        assert "\n" not in _title_from("Fold this:\n\nMSIQHFRVAL\nIPFFAAFCLP")

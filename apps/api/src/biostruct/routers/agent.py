@@ -166,6 +166,7 @@ def _message_out(message: Any) -> MessageOut:
                 "text": b.text,
                 "estimate_usd": str(b.estimate_usd) if b.estimate_usd is not None else None,
                 "flagged": list(b.flagged),
+                "data": b.data,
             }
             for b in message.blocks
         ],
@@ -242,6 +243,24 @@ async def list_messages(
         raise errors.not_found("session")
     messages = await conversations.list_messages(session_id, user_id=user.id, after_seq=after_seq)
     return [_message_out(m) for m in messages]
+
+
+#: How long a derived session name may be before it is cut.
+TITLE_CHARS = 60
+
+
+def _title_from(question: str) -> str:
+    """A session name taken from the question that started it.
+
+    Deliberately the researcher's own words rather than a model-generated
+    summary: it costs nothing, it is instantly recognisable to the person who
+    typed it, and it cannot be wrong.
+    """
+    cleaned = " ".join(question.split())
+    if len(cleaned) <= TITLE_CHARS:
+        return cleaned
+    cut = cleaned[:TITLE_CHARS].rsplit(" ", 1)[0]
+    return f"{cut or cleaned[:TITLE_CHARS]}…"
 
 
 class TranscriptOut(BaseModel):
@@ -414,6 +433,14 @@ async def send_message(
     )
     if user_message is None:
         raise errors.not_found("session")
+
+    # Name the session after the question that started it. A rail full of
+    # "Untitled session" is a rail nobody can navigate, and the researcher
+    # should not have to title their work before they are allowed to do it.
+    if not session.title.strip():
+        await conversations.update_session(
+            session_id, user_id=user.id, data=SessionUpdate(title=_title_from(data.content))
+        )
 
     ctx = ToolContext(
         user_id=user.id,

@@ -1,5 +1,5 @@
 /**
- * Typed client for the Biostruct API.
+ * Typed client for the Antidote API.
  *
  * Two things it has to get right:
  *

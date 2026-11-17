@@ -96,6 +96,10 @@ class Block(BaseModel):
     estimate_usd: Decimal | None = None
     #: Sentences whose citation failed verification (M4). Surfaced, never hidden.
     flagged: tuple[str, ...] = ()
+    #: On a ``proposal`` block: the tool and arguments to run if confirmed.
+    #: Stored rather than held in memory for the turn, because a proposal has
+    #: to still be there when the researcher comes back to it tomorrow.
+    data: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("estimate_usd", mode="before")
     @classmethod

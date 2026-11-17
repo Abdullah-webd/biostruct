@@ -25,10 +25,48 @@ export type SessionSummary = {
   title: string;
   status: "active" | "archived";
   message_count: number;
-  budget_limit_usd: string;
-  budget_remaining_usd: string;
   created_at: string;
   last_message_at: string | null;
+};
+
+/** A piece of paid scientific work, in whatever state it has reached. */
+export type Run = {
+  id: string;
+  kind: "fold" | "screen" | "design";
+  state: "pending" | "running" | "harvesting" | "complete" | "failed";
+  title: string;
+  percent: number;
+  done: number;
+  total: number;
+  error: string;
+  artifact_id: string;
+  livemode: boolean;
+};
+
+/** One molecule from a screen or a design run. */
+export type MoleculeRow = {
+  rank: number;
+  result_id: string;
+  smiles: string;
+  external_id: string;
+  name: string;
+  is_control: boolean;
+  known_potency_nm: number | null;
+  binding_confidence: number | null;
+  structure_confidence: number | null;
+  iptm: number | null;
+  lipophilicity: number | null;
+  permeability: number | null;
+  solubility: string | null;
+  warnings: string[];
+};
+
+export type Transcript = {
+  text: string;
+  english: string;
+  language: string;
+  language_name: string;
+  translated: boolean;
 };
 
 export type MessageBlock = {
@@ -36,6 +74,8 @@ export type MessageBlock = {
   text: string;
   estimate_usd: string | null;
   flagged: string[];
+  /** On a proposal block: the tool and arguments to run if confirmed. */
+  data: Record<string, unknown>;
 };
 
 export type Citation = {
@@ -244,6 +284,12 @@ export const agentApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  runs: (id: string) => fetchJson<Run[]>(`/sessions/${id}/runs`),
+  startRun: (id: string, tool: string, args: Record<string, unknown>) =>
+    fetchJson<Run>(`/sessions/${id}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ tool, arguments: args }),
+    }),
   archive: (id: string) =>
     fetchJson<SessionSummary>(`/sessions/${id}`, {
       method: "PATCH",
@@ -271,4 +317,43 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
     );
   }
   return parsed as T;
+}
+
+
+/** The URL a structure artifact is served from — ours, never the engine's. */
+export function structureUrl(
+  sessionId: string,
+  artifactId: string,
+  sample = 0,
+): string {
+  return `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/structure.cif?sample=${sample}`;
+}
+
+/**
+ * Send a recording for transcription.
+ *
+ * Returns a draft, never a sent message. A speech model mis-hearing an
+ * organism must not be the thing that starts a paid run, so the researcher
+ * reads it first.
+ */
+export async function transcribe(
+  blob: Blob,
+  language = "",
+): Promise<Transcript> {
+  const form = new FormData();
+  form.append("audio", blob, "speech.webm");
+  form.append("language", language);
+  const response = await fetch("/api/v1/sessions/voice/transcribe", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "x-csrf-token": readCsrf() },
+    body: form,
+  });
+  const text = await response.text();
+  const parsed: unknown = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    const problem = parsed as { detail?: string; title?: string };
+    throw new Error(problem.detail ?? problem.title ?? "Could not transcribe that.");
+  }
+  return parsed as Transcript;
 }

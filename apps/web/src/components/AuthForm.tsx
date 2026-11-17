@@ -55,7 +55,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <main id="main" className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
       <Link href="/" className="mb-10 inline-block">
-        <span className="display text-xl text-ink">Biostruct</span>
+        <span className="display text-xl text-ink">Antidote</span>
       </Link>
 
       <h1 className="display text-3xl">

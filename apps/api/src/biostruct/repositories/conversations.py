@@ -224,6 +224,7 @@ class ConversationRepository:
                     text=b.get("text", ""),
                     estimate_usd=_money_in(b.get("estimate_usd")),
                     flagged=tuple(b.get("flagged") or ()),
+                    data=b.get("data") or {},
                 )
                 for b in doc.get("blocks") or []
             ],
@@ -329,6 +330,7 @@ class ConversationRepository:
                     "text": b.text,
                     "estimate_usd": _money_out(b.estimate_usd),
                     "flagged": list(b.flagged),
+                    "data": b.data,
                 }
                 for b in data.blocks
             ],

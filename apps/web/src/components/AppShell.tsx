@@ -70,13 +70,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (state !== "ready") return;
-    void refresh();
+    const load = async () => {
+      await Promise.resolve();
+      await refresh();
+    };
+    void load();
   }, [state, pathname, refresh]);
-
-  // Close the rail after navigating on a phone, where it covers the thread.
-  useEffect(() => {
-    setRailOpen(false);
-  }, [pathname]);
 
   const startSession = useCallback(async () => {
     setCreating(true);
@@ -181,6 +180,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     >
                       <Link
                         href={`/sessions/${session.id}`}
+                        // Closed here rather than in an effect on the path: on
+                        // a phone the rail covers the thread you just opened.
+                        onClick={() => setRailOpen(false)}
                         aria-current={active ? "page" : undefined}
                         className={`block truncate rounded-md px-2 py-1.5 text-[13px] transition-colors duration-[var(--dur-ui)] ${
                           active

@@ -274,13 +274,19 @@ async def target_detail(args: dict[str, Any], ctx: ToolContext) -> ToolResultDat
                 for s in evidence.structures
             ],
         },
+        # Deliberately *not* kind "structure": nothing has been folded here, so
+        # an entry offering to open a 3D view would be a promise with no file
+        # behind it. This is what we know about the target, not a prediction.
         artifact={
-            "kind": "structure",
-            "title": f"{target.accession} {target.protein_name}",
+            "kind": "evidence",
+            "title": f"Target: {target.accession} {target.protein_name}",
             "payload": {
                 "accession": target.accession,
-                "pdb_id": best.pdb_id if best else "",
-                "length": target.length,
+                "organism": target.organism,
+                "residues": target.length,
+                "experimental_structures": len(evidence.structures),
+                "best_structure": best.pdb_id if best else "none on record",
+                "annotated_active_site_residues": len(target.active_sites),
             },
         },
     )

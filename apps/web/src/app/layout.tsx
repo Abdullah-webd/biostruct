@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Biostruct — therapeutic protein design",
+  title: "Antidote — research agent for drug-resistant infection",
   description:
-    "Design candidate proteins that stick to the enzymes making an infection " +
-    "drug-resistant. A starting point for lab work, not evidence that anything cures.",
+    "Find the enzyme behind a drug-resistant infection, with citations you can " +
+    "check. Predict its structure and rank molecules that could block it. A " +
+    "starting point for lab work, not evidence that anything cures.",
 };
 
 export const viewport: Viewport = {
