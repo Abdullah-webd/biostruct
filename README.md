@@ -1,130 +1,105 @@
-# Biostruct — AI-Powered Therapeutic Protein Design Platform
+# Antidote
 
-An integrated research environment that takes a researcher from a **drug-resistant infection** to a
-**ranked, explained, exportable list of candidate therapeutic protein binders** — without needing a
-GPU cluster, an MLOps team, or a computational-biology background.
+**Paste a protein sequence. Get its 3D structure. Get ten molecules that might block it.**
 
-Built for early-stage therapeutic protein discovery, with African research institutions as the
-primary audience.
+Antidote does the two steps of drug discovery a computer can actually do, for the enzymes that make
+infections drug-resistant:
 
-> **Status: approved, build starting.** Start with **[ARCHITECTURE.md](ARCHITECTURE.md)**, backed by
-> **[docs/research.md](docs/research.md)**.
+| | Step | What happens |
+|---|---|---|
+| **2** | Sequence → structure | A model folds the amino-acid chain into a predicted 3D structure, which you can turn on screen. |
+| **3** | Structure → molecules | A second model docks candidate molecules into it and ranks them. You download the shortlist. |
 
----
+Steps 1, 4 and 5 — sequencing, lab testing, clinical trials — happen in a laboratory. This tool does
+not do them and does not pretend to.
 
-## What it does
-
-| Step | |
-|---|---|
-| 1 | Select a drug-resistant infection |
-| 2 | Discover a biological target across UniProt, RCSB PDB and PubMed, with the evidence attached |
-| 3 | Generate candidate protein binders with **BoltzProt-1** |
-| 4 | Predict 3D structures and view them interactively in **Mol\*** |
-| 5 | Evaluate predicted protein–target interaction |
-| 6 | Rank and compare candidates with transparent, configurable, reproducible criteria |
-| 7 | Export sequences, structures and a provenance report for the wet lab |
-
-An agentic assistant (orchestrator + five specialists, OpenAI Agents SDK) runs alongside the whole
-workflow, over text or voice.
+Built with African research institutions as the primary audience: antimicrobial resistance kills more
+people per head in sub-Saharan Africa than anywhere else on earth, and the places with the most to
+lose have the least access to the tooling that finds new drugs.
 
 ---
 
-## What it is not
+## The one thing that makes a result trustworthy
 
-This platform produces **computational prioritisation, not evidence of therapeutic effect.**
+**Every screen contains a positive control** — a compound already known to inhibit that class of
+enzyme. If it does not rank near the top, the run is not telling you anything, and the interface says
+so in red *before* it shows you the ranking.
 
-No candidate it generates is a drug. Predicted interface confidence is not potency, and a high
-ranking is not a claim that a protein works. Experimental validation is always required. The
-platform enforces this: a non-bypassable Scientific Review guardrail blocks any generated text that
-asserts efficacy or clinical readiness, and every export leads with its limitations.
+The control is chosen per Ambler class, because this matters: avibactam is the reference inhibitor
+for class A and is very nearly useless against the class B metallo-enzymes. A single global control
+would make a working screen look broken against NDM.
 
----
+## What it deliberately does not do
 
-## Stack
-
-**Web** — Next.js (App Router) · TypeScript · Tailwind · Mol\* · GSAP/Motion/Lenis
-**API** — Python 3.12 · FastAPI · reconciler worker (no queue, no broker)
-**Science** — Boltz API (`BoltzProt-1` design, `Boltz-2` structure + affinity) · UniProt · RCSB PDB · PubMed
-**AI** — OpenAI Agents SDK · Realtime API (voice)
-**Data** — MongoDB (data, cache, change-stream progress) · Railway Bucket (S3-compatible)
-
-One correction worth knowing up front: **Boltz-2 cannot design binders** — it scores complexes.
-De novo design comes from **BoltzProt-1** (hosted API) or BoltzGen (open source, needs an A100).
-See [docs/research.md §1](docs/research.md).
+- **No toxicity or safety prediction.** Nothing in this stack assesses it, no free tool does, and
+  claiming otherwise about a medicine would be the most dangerous thing this product could say.
+- **No therapeutic claims.** Every molecule it ranks is a computational hypothesis for a bench to
+  test.
 
 ---
 
-## Try it
-
-The backend works today. There is no web UI yet, but the API ships with an
-interactive page you can click the whole workflow through.
+## Running it
 
 ```bash
-cp .env.example .env     # add BOLTZ_API_KEY and OPENAI_API_KEY
-make dev                 # terminal 1 — the API on :8000
-make web                 # terminal 2 — the interface
+docker compose up -d --wait mongo       # MongoDB (replica set, for change streams)
+cd apps/api && uv sync                  # Python 3.12
+cd apps/web && npm install              # Next.js
 ```
 
-`make web` prints the URL it chose. It uses port 3000 when free and steps to
-the next one when not, so it will not collide with another project you have
-running.
+Copy `.env.example` to `.env` and fill in the keys. Then, in two terminals:
 
-It serves the production build rather than the dev server, because that is the
-build that gets verified and it does not depend on the hot-reload websocket.
-Use `make web-dev` when you are editing the frontend and want hot reload.
-
-Then create an account and work down the left rail: find a target, choose an
-epitope, estimate, confirm, watch the run, read the ranked candidates.
-
-The API also serves an interactive page at http://localhost:8000/docs if you
-would rather drive it directly.
-
-`make dev` runs the API directly on your machine. If your Docker runs in a VM
-(Colima, Rancher Desktop, Podman machine) then `make up` will start a perfectly
-healthy container whose port never reaches your browser, which looks exactly
-like a broken app. Running it natively avoids that. It uses `MONGODB_URI` from
-`.env`, so with an Atlas connection string no local database is needed.
-
-Driving the API directly rather than through the UI, at
-http://localhost:8000/docs:
-
-1. `POST /auth/register` — any email, password of 12+ characters
-2. `POST /projects` — name it, with `infection.name`
-3. `POST /projects/{id}/targets/search` — try `protein_name:"carbapenem-hydrolyzing beta-lactamase KPC"`
-4. `POST /projects/{id}/targets` — `{"accession": "Q9F663"}` (KPC-2)
-5. `PUT  /projects/{id}/targets/{id}/epitope` — `{"pdb_id":"2OV5","chain_id":"A","author_residues":[70,73,130,166]}`
-6. `POST /projects/{id}/runs/estimate` then `POST /projects/{id}/runs` with the price it quoted
-7. `GET  /projects/{id}/runs/{id}/ranking` — scored, explained candidates
-
-With a test-mode Boltz key this is free and finishes in about ten seconds, and
-the results are synthetic. Every response says so.
-
-Other commands: `make test`, `make lint`, `make verify-e2e`, `make logs`, `make down`.
-Credentials are explained in **[docs/credentials.md](docs/credentials.md)**.
-
-## Repository
-
-```
-ARCHITECTURE.md     the design, and the approval gate
-AGENTS.md           rules for any coding agent working here
-docs/research.md    verified findings behind every decision
-docs/credentials.md what keys are needed, when, and how to get them
-apps/web            Next.js frontend            (M0)
-apps/api            FastAPI backend + worker    (M0)
+```bash
+cd apps/api && .venv/bin/uvicorn biostruct.main:app --port 8000
+cd apps/web && PORT=3002 npm run dev
 ```
 
-## Cost note
+Open <http://localhost:3002>.
 
-**Building this costs nothing.** Boltz's free tier is 200 predictions/month and the whole build
-needs ~150: 30 to prove the live API behaves as documented, ~20 to record test fixtures, and 100 for
-one good demo run. All other development and CI replays those fixtures and never calls the API.
+### Test mode vs live mode
 
-Cost control is still a built-in feature, for two reasons that have nothing to do with our build:
-a real research campaign is 10,000+ designs at ~$0.05 each, and `num_proteins` accepts up to
-1,000,000 — so one misplaced digit would be a $50,000 call. Every run shows an estimate and requires
-confirmation, every project has a hard budget, and the account carries an independent spending limit.
+A Boltz key announces its own mode in its prefix, and the app refuses to start on a mismatch.
 
-## Licence
+- **`sk_bc_ws_test_…`** — the default. Runs the real flow and returns **synthetic** results: a
+  stand-in structure, and molecules the engine substitutes for the ones you sent. Nothing is charged.
+  Every screen that shows synthetic data is labelled as such.
+- **`sk_bc_ws_live_…`** — real predictions, real money (~$0.025 per fold, ~$0.025 per molecule
+  screened). In development this is refused unless you set **`BOLTZ_ALLOW_LIVE=1`**, so spending is
+  always a deliberate choice. Use that flag rather than `ENV=prod` for a local demo: `ENV=prod` also
+  forces secure cookies, and sign-in then fails over plain http.
 
-[MIT](LICENSE) for the code. See [NOTICE](NOTICE) for what the software does not claim,
-and for who owns the sequences and structures it generates (the researcher, not us).
+```bash
+BOLTZ_API_KEY=sk_bc_ws_live_… BOLTZ_ALLOW_LIVE=1 .venv/bin/uvicorn biostruct.main:app --port 8000
+```
+
+> **`.env` is not shell-sourceable** — it contains an unquoted `&`, so `source .env` stops partway
+> through. The app reads the file directly via pydantic-settings, so this only affects scripts.
+
+---
+
+## Checks
+
+```bash
+make test     # 552 tests, inside the compose network
+make lint     # ruff, ruff-format, mypy --strict
+cd apps/web && npm run lint && npm run build
+```
+
+`make test` runs **inside** the compose network on purpose: on Docker Desktop/Colima the host cannot
+reach the published MongoDB port, and a host-run `pytest` silently skips the integration tests.
+
+---
+
+## Where things are
+
+| Path | |
+|---|---|
+| `apps/api/src/biostruct/lab/` | The two steps: models, and the service that runs them |
+| `apps/api/src/biostruct/engines/` | Boltz clients — folding, screening, molecule design |
+| `apps/api/src/biostruct/library.py` | The curated inhibitor library and its per-class controls |
+| `apps/api/src/biostruct/sources/` | ChEMBL, UniProt, RCSB, Europe PMC, PubMed |
+| `apps/web/src/components/Lab.tsx` | The product, on one page |
+| `docs/` | What each API actually does, measured — not what its docs claim |
+
+The `docs/*-observed.md` files are worth reading before touching an integration. They record
+behaviour found by probing the live APIs, including several things the official documentation does
+not say and at least one place where it is wrong.

@@ -8,6 +8,26 @@
 
 ---
 
+> ## Where this document stands (2026-11-17, final)
+>
+> **The agent is gone.** The product shipped is two steps on one page: paste a
+> sequence, get a predicted 3D structure, press one button, get ten ranked
+> molecules and a CSV. The orchestrator, the OpenAI client, the tool layer, the
+> citation verifier, the voice input and the conversation data model were all
+> removed — roughly 4,000 lines — because a demo deadline made a simple,
+> finishable tool worth more than an ambitious unfinished one.
+>
+> **The engines beneath them were kept and are unchanged.** The Boltz folding,
+> screening and design clients, the ChEMBL and Europe PMC sources, the curated
+> inhibitor library with its per-Ambler-class positive controls, the residue
+> numbering and the ranking were always the valuable part, and they are what the
+> two steps run on.
+>
+> Sections 6–8 and the later ADRs describe the agent architecture as it was
+> designed and built. They are kept as a record of the reasoning, not as a
+> description of the running system. For that, read `README.md`,
+> `apps/api/src/biostruct/lab/` and the `docs/*-observed.md` files.
+
 ## 1. Overview
 
 **Problem.** Sub-Saharan Africa has the highest death rate from drug-resistant
@@ -659,3 +679,7 @@ evidence, fold and screen — are each reachable from the one surface.
 | 28 | 2026-11-17 | A run outlives the request that started it | Folding takes minutes. Holding an HTTP request open for them times out in every proxy, and cancelling on disconnect would abandon science that is already being billed | Synchronous run; client-driven polling that starts the work |
 | 29 | 2026-11-17 | Proposals are stored on the message, not held in the turn | Found by testing: the proposal vanished the moment the turn ended, so the confirm button could never be pressed. It also has to survive a reload — someone should be able to come back tomorrow and start the fold | Hold in client state for the turn |
 | 30 | 2026-11-17 | Test-mode results are never joined back to our library | Measured: in test mode the engine discards the ids and SMILES we submitted and substitutes its own, so matching them back would label a random molecule as our positive control and make a synthetic run look validated | Join on id regardless of mode |
+| 31 | 2026-11-17 | Cut the agent; ship the two steps on one page | A demo deadline. A simple tool that works end to end is worth more than an ambitious one that does not, and the engines — which were always the hard part — carry over untouched | Keep the agent and cut its scope; ship both and let users choose |
+| 32 | 2026-11-17 | Structural-alert filters are off for the curated library | Measured live: with the recommended filters on, Boltz silently discarded 6 of 9 molecules **including avibactam, the positive control**. Those catalogues exist to strip junk out of million-compound vendor libraries; ours is nine hand-picked inhibitors, most of them licensed medicines. A filter that deletes the molecule you are checking the experiment with is not protecting anyone | Leave filters on and accept the loss; special-case the control |
+| 33 | 2026-11-17 | A missing positive control is reported as loudly as a badly-ranked one | Found by the same live run: the engine can drop molecules without saying which, and the interface showed a clean ranked list with no control behind it. That looks exactly like a result and is not one | Show the ranking and omit the control line |
+| 34 | 2026-11-17 | `BOLTZ_ALLOW_LIVE` is separate from `ENV` | A local demo legitimately wants real results, but `ENV=prod` also forces secure cookies, so sign-in fails over plain http. Spending real money stays an explicit switch rather than a side effect of a deployment setting | Reuse ENV; drop the guard entirely |

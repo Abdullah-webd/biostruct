@@ -374,3 +374,54 @@ class TestScreening:
         await settle(lambda: lab.get_screen(screen.id, user_id=USER), limit=12.0)
         # Avibactam is the shipped class A control and must be in what we sent.
         assert any(m.external_id == "CHEMBL1689063" for m in engine.submitted)
+
+    async def test_the_curated_library_is_not_run_through_structural_filters(
+        self, db: AsyncIOMotorDatabase[dict[str, Any]], no_download: None
+    ) -> None:
+        """Measured on the live API: with the recommended filters on, 6 of 9
+        molecules were silently discarded — including avibactam, the positive
+        control. Those catalogues exist to strip junk out of million-compound
+        vendor libraries; ours is nine hand-picked inhibitors, most of them
+        licensed medicines."""
+        captured: dict[str, Any] = {}
+
+        class Capturing(StubEngine):
+            async def start_screen(self, spec: Any, *, idempotency_key: str) -> MoleculeJob:
+                captured["filter_level"] = spec.filter_level
+                return await super().start_screen(spec, idempotency_key=idempotency_key)
+
+        lab, _ = lab_for(db, Capturing())
+        started = await lab.start_prediction(user_id=USER, sequence=KPC)
+        await settle(lambda: lab.get_prediction(started.id, user_id=USER))
+        screen = await lab.start_screen(user_id=USER, prediction_id=started.id)
+        await settle(lambda: lab.get_screen(screen.id, user_id=USER), limit=12.0)
+        assert captured["filter_level"] == "disabled"
+
+    async def test_a_shortfall_between_submitted_and_returned_is_recorded(
+        self, db: AsyncIOMotorDatabase[dict[str, Any]], no_download: None
+    ) -> None:
+        """The engine can drop molecules without saying which. The counts are
+        the only trace, so they are kept and shown rather than letting a
+        library quietly shrink."""
+
+        class Dropping(StubEngine):
+            async def iter_screen_results(self, job_id: str) -> Any:
+                yield MoleculeResult(
+                    result_id="r1",
+                    smiles="CCO",
+                    external_id="CHEMBL777",
+                    metrics=MoleculeMetrics(binding_confidence=0.5),
+                    adme=Adme(),
+                )
+
+        lab, _ = lab_for(db, Dropping())
+        started = await lab.start_prediction(user_id=USER, sequence=KPC)
+        await settle(lambda: lab.get_prediction(started.id, user_id=USER))
+        screen = await lab.start_screen(user_id=USER, prediction_id=started.id)
+        done = await settle(lambda: lab.get_screen(screen.id, user_id=USER), limit=12.0)
+
+        assert done.submitted > done.returned
+        assert done.returned == 1
+        # The control was among the dropped, so there is nothing to judge by.
+        assert done.control_rank is None
+        assert done.control_looks_right is None

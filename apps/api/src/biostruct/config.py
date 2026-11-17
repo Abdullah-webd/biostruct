@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     mongodb_db: str = "biostruct"
 
     # --- external services -------------------------------------------------
+    #: Run a LIVE Boltz key outside production on purpose — a demo on
+    #: localhost, where ENV=prod cannot be used because it forces secure
+    #: cookies and sign-in then fails over plain http. Deliberately a separate
+    #: switch from the environment, so real spending is always an explicit
+    #: choice rather than a side effect of a deployment setting.
+    boltz_allow_live: bool = False
     boltz_api_key: SecretStr = SecretStr("")
     boltz_base_url: str = "https://api.boltz.bio"
     openai_api_key: SecretStr = SecretStr("")
@@ -125,11 +131,13 @@ class Settings(BaseSettings):
                 f"Refusing to start: env={self.env} but BOLTZ_API_KEY is a TEST key. "
                 "Test keys return synthetic results, which must never reach researchers."
             )
-        if not self.is_production and mode == "live":
+        if not self.is_production and mode == "live" and not self.boltz_allow_live:
             raise RuntimeError(
                 f"Refusing to start: env={self.env} but BOLTZ_API_KEY is a LIVE key. "
-                "Development would spend real credits. Use a sk_bc_ws_test_ key, or set ENV=prod "
-                "if this really is production."
+                "Development would spend real credits. Use a sk_bc_ws_test_ key, or set "
+                "BOLTZ_ALLOW_LIVE=1 if you mean it (a demo on localhost, say). "
+                "ENV=prod also works but forces secure cookies, which breaks sign-in "
+                "over plain http."
             )
 
 

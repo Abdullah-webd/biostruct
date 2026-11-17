@@ -195,3 +195,59 @@ class TestBoltzKeyModeGuard:
         Settings(env=Env.prod, boltz_api_key="sk_bc_ws_live_abc").assert_key_mode_matches_env()
         # No key configured yet must not block startup.
         Settings(env=Env.dev, boltz_api_key="").assert_key_mode_matches_env()
+
+
+class TestLiveKeyGuard:
+    """Spending real money must always be an explicit choice.
+
+    The guard exists so a live key cannot run in development by accident. The
+    escape hatch exists because a demo on localhost is a legitimate reason to
+    want real results, and ENV=prod is not an option there: it forces secure
+    cookies and sign-in then fails over plain http.
+    """
+
+    def _settings(self, **over: object):  # type: ignore[no-untyped-def]
+        from biostruct.config import Env, Settings
+
+        base: dict[str, object] = {
+            "env": Env.dev,
+            "mongodb_uri": "mongodb://localhost:27017",
+            "session_secret": "x" * 32,
+            "app_base_url": "http://localhost:3002",
+            "boltz_api_key": "sk_bc_ws_live_abc123",
+        }
+        base.update(over)
+        return Settings(**base)  # type: ignore[arg-type]
+
+    def test_a_live_key_in_development_is_refused_by_default(self) -> None:
+        import pytest
+
+        with pytest.raises(RuntimeError, match="LIVE key"):
+            self._settings().assert_key_mode_matches_env()
+
+    def test_the_refusal_explains_both_ways_out(self) -> None:
+        import pytest
+
+        with pytest.raises(RuntimeError) as caught:
+            self._settings().assert_key_mode_matches_env()
+        message = str(caught.value)
+        assert "BOLTZ_ALLOW_LIVE=1" in message
+        assert "secure cookies" in message
+
+    def test_the_explicit_flag_permits_it(self) -> None:
+        self._settings(boltz_allow_live=True).assert_key_mode_matches_env()
+
+    def test_the_flag_does_not_let_a_test_key_into_production(self) -> None:
+        """The other direction is a different danger: synthetic results
+        reaching a researcher who believes they are real."""
+        import pytest
+
+        from biostruct.config import Env
+
+        with pytest.raises(RuntimeError, match="TEST key"):
+            self._settings(
+                env=Env.prod, boltz_api_key="sk_bc_ws_test_abc", boltz_allow_live=True
+            ).assert_key_mode_matches_env()
+
+    def test_cookies_stay_insecure_in_development_so_localhost_works(self) -> None:
+        assert self._settings(boltz_allow_live=True).cookie_secure is False

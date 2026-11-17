@@ -254,6 +254,16 @@ class Lab:
                     Molecule(smiles=e.smiles, external_id=e.external_id or e.name)
                     for e in library.entries
                 ),
+                # Filters off, and this is a scientific judgement, not a
+                # shortcut. The structural-alert catalogues exist to strip junk
+                # out of million-compound vendor libraries. Our library is nine
+                # hand-picked beta-lactamase inhibitors, most of them licensed
+                # medicines. Measured on the live API: with the recommended
+                # filters on, 6 of 9 were silently discarded — including
+                # avibactam, the positive control. A filter that deletes the
+                # molecule you are using to check the experiment is not
+                # protecting anyone.
+                filter_level="disabled",
             )
             job = await self._engine.start_screen(spec, idempotency_key=screen_id)
             await self._set(

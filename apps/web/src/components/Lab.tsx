@@ -435,6 +435,13 @@ function ScreenPanel({ screen }: { screen: Screen }) {
     <div className="flex flex-col gap-4">
       <ControlVerdict screen={screen} />
 
+      {screen.submitted > screen.returned ? (
+        <p className="text-xs leading-relaxed text-muted">
+          {screen.submitted - screen.returned} of {screen.submitted} molecules
+          were rejected by the engine before scoring and never appear below.
+        </p>
+      ) : null}
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead>
@@ -509,7 +516,18 @@ function ControlVerdict({ screen }: { screen: Screen }) {
       </p>
     );
   }
-  return null;
+  // Live, but the control never came back. Measured on the live API: the
+  // engine's structural filters can discard molecules silently, and the only
+  // trace is a shortfall in the count. A ranked list with no control behind it
+  // looks exactly like a result and is not one, so it is labelled before it is
+  // shown.
+  return (
+    <p className="rounded-md border-l-[3px] border-danger bg-[#fdf3f2] px-3 py-2 text-xs leading-relaxed text-danger">
+      {screen.control_name ? <strong>{screen.control_name}</strong> : "The positive control"}{" "}
+      did not come back from this run, so there is nothing to check the ranking
+      against. Treat the molecules below as unverified.
+    </p>
+  );
 }
 
 function Row({ hit, index }: { hit: Hit; index: number }) {
