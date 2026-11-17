@@ -1,0 +1,80 @@
+{
+  "id": "sab_pred_FN6jMEAIamb2p4zS54rp",
+  "model": "boltz-2.1",
+  "version": "v2026-03-01",
+  "status": "succeeded",
+  "error": null,
+  "livemode": false,
+  "workspace_id": "ws_REDACTED",
+  "data_deleted_at": null,
+  "created_at": "2026-11-17T06:20:34.789Z",
+  "started_at": "2026-11-17T06:20:38.693Z",
+  "completed_at": "2026-11-17T06:20:38.755Z",
+  "expires_at": "2026-11-24T06:20:38.755Z",
+  "input": {
+    "entities": [
+      {
+        "type": "protein",
+        "chain_ids": [
+          "A"
+        ],
+        "value": "MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLL",
+        "modifications": []
+      },
+      {
+        "type": "ligand_smiles",
+        "chain_ids": [
+          "B"
+        ],
+        "value": "NC(=O)[C@@H]1CC[C@@H]2CN1C(=O)N2OS(=O)(=O)O"
+      }
+    ],
+    "binding": {
+      "type": "ligand_protein_binding",
+      "binder_chain_id": "B"
+    },
+    "num_samples": 1
+  },
+  "output": {
+    "best_sample": {
+      "metrics": {
+        "structure_confidence": 0.852,
+        "ptm": 0.91,
+        "iptm": 0.87,
+        "ligand_iptm": 0,
+        "protein_iptm": 0,
+        "complex_plddt": 0.852,
+        "complex_iplddt": 0,
+        "complex_pde": 0,
+        "complex_ipde": 0
+      },
+      "structure": {
+        "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/public_predicted_structure.cif?REDACTED",
+        "url_expires_at": "2026-11-17T06:50:41.325Z"
+      }
+    },
+    "all_sample_results": [
+      {
+        "metrics": {
+          "structure_confidence": 0.852,
+          "ptm": 0.91,
+          "iptm": 0.87,
+          "ligand_iptm": 0,
+          "protein_iptm": 0,
+          "complex_plddt": 0.852,
+          "complex_iplddt": 0,
+          "complex_pde": 0,
+          "complex_ipde": 0
+        },
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/public_predicted_structure.cif?REDACTED",
+          "url_expires_at": "2026-11-17T06:50:41.325Z"
+        }
+      }
+    ],
+    "archive": {
+      "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?REDACTED",
+      "url_expires_at": "2026-11-17T06:50:41.326Z"
+    }
+  }
+}

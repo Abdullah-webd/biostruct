@@ -43,11 +43,26 @@ from biostruct.engines.base import (
     SequenceTarget,
     StructureTarget,
 )
+from biostruct.engines.prediction import (
+    MODEL as PREDICTION_MODEL,
+)
+from biostruct.engines.prediction import (
+    Entity,
+    LigandBinding,
+    PredictedSample,
+    PredictionJob,
+    PredictionSpec,
+    ProteinBinding,
+    StructureMetrics,
+)
 
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.boltz.bio"
 API_PREFIX = "/compute/v1"
+
+#: Step 2's endpoint family. Billed per sample, $0.0250 each as of 2026-11-17.
+PREDICTION_PATH = "/predictions/structure-and-binding"
 
 # Submission should fail fast; result pages carry more data and get longer.
 TIMEOUT_SUBMIT = httpx.Timeout(30.0, connect=10.0)
@@ -393,6 +408,154 @@ class BoltzHostedEngine:
 
     async def delete_data(self, job_id: str) -> None:
         await self._request("POST", f"/protein/design/{job_id}/delete-data")
+
+    # --- StructureEngine ---------------------------------------------------
+    #
+    # Step 2 of the pipeline: fold a complex. A different application from
+    # design, with its own endpoints, its own billing unit (samples, $0.0250
+    # each as of 2026-11-17) and its own result shape. Paths are
+    # ``/predictions/structure-and-binding``; see ``prediction.py`` for the
+    # domain types and ``docs/boltz-api-observed.md`` Part 2 for the capture.
+
+    @staticmethod
+    def _entity_payload(entity: Entity) -> dict[str, Any]:
+        return {
+            "type": entity.kind,
+            "value": entity.value,
+            "chain_ids": list(entity.chain_ids),
+        }
+
+    @classmethod
+    def _prediction_payload(cls, spec: PredictionSpec) -> dict[str, Any]:
+        """Build the wire body.
+
+        Unlike the library screen, this endpoint *does* take an ``input``
+        wrapper and *does* take ``model``. The two applications disagree, which
+        is easy to get backwards — sending ``model`` to the screen makes its
+        validator demand a field that does not exist.
+        """
+        payload: dict[str, Any] = {
+            "entities": [cls._entity_payload(e) for e in spec.entities],
+            "num_samples": spec.num_samples,
+        }
+
+        match spec.binding:
+            case LigandBinding(binder_chain_id=cid):
+                payload["binding"] = {
+                    "type": "ligand_protein_binding",
+                    "binder_chain_id": cid,
+                }
+            case ProteinBinding(binder_chain_ids=cids):
+                payload["binding"] = {
+                    "type": "protein_protein_binding",
+                    "binder_chain_ids": list(cids),
+                }
+            case None:
+                pass
+
+        if spec.options is not None:
+            options: dict[str, Any] = {}
+            if spec.options.recycling_steps is not None:
+                options["recycling_steps"] = spec.options.recycling_steps
+            if spec.options.sampling_steps is not None:
+                options["sampling_steps"] = spec.options.sampling_steps
+            if spec.options.seed is not None:
+                options["seed"] = spec.options.seed
+            if spec.options.step_scale is not None:
+                options["step_scale"] = float(spec.options.step_scale)
+            if options:
+                payload["model_options"] = options
+
+        return {"input": payload, "model": PREDICTION_MODEL}
+
+    @staticmethod
+    def _parse_metrics(raw: dict[str, Any]) -> StructureMetrics:
+        return StructureMetrics(
+            structure_confidence=float(raw.get("structure_confidence") or 0.0),
+            ptm=_opt_float(raw.get("ptm")),
+            iptm=_opt_float(raw.get("iptm")),
+            ligand_iptm=_opt_float(raw.get("ligand_iptm")),
+            protein_iptm=_opt_float(raw.get("protein_iptm")),
+            complex_plddt=_opt_float(raw.get("complex_plddt")),
+            complex_iplddt=_opt_float(raw.get("complex_iplddt")),
+            complex_pde=_opt_float(raw.get("complex_pde")),
+            complex_ipde=_opt_float(raw.get("complex_ipde")),
+        )
+
+    @classmethod
+    def _parse_sample(cls, raw: dict[str, Any]) -> PredictedSample:
+        return PredictedSample(
+            metrics=cls._parse_metrics(raw.get("metrics") or {}),
+            structure=cls._parse_artifact(raw.get("structure")),
+        )
+
+    @classmethod
+    def parse_prediction(cls, payload: dict[str, Any]) -> PredictionJob:
+        raw_status = str(payload.get("status", "")).lower()
+        try:
+            status = JobStatus(raw_status)
+        except ValueError:
+            # An unknown status must not crash the reconciler, and must not be
+            # mistaken for a terminal one.
+            log.warning("Boltz returned unknown prediction status %r", raw_status)
+            status = JobStatus.running
+
+        output = payload.get("output") or {}
+        best_raw = output.get("best_sample")
+        samples_raw = output.get("all_sample_results") or []
+
+        error = payload.get("error")
+        return PredictionJob(
+            job_id=str(payload.get("id", "")),
+            status=status,
+            livemode=bool(payload.get("livemode", False)),
+            model=str(payload.get("model", "")),
+            version=str(payload.get("version", "")),
+            error=str(error.get("message", "")) if isinstance(error, dict) else "",
+            created_at=_parse_dt(payload.get("created_at")),
+            started_at=_parse_dt(payload.get("started_at")),
+            completed_at=_parse_dt(payload.get("completed_at")),
+            expires_at=_parse_dt(payload.get("expires_at")),
+            best=cls._parse_sample(best_raw) if isinstance(best_raw, dict) else None,
+            samples=tuple(cls._parse_sample(row) for row in samples_raw if isinstance(row, dict)),
+            archive=cls._parse_artifact(output.get("archive")),
+        )
+
+    async def estimate_prediction_cost(self, spec: PredictionSpec) -> CostEstimate:
+        payload = await self._request(
+            "POST",
+            f"{PREDICTION_PATH}/estimate-cost",
+            json=self._prediction_payload(spec),
+        )
+        breakdown = payload.get("breakdown") or {}
+        return CostEstimate(
+            total_usd=_money(payload.get("estimated_cost_usd", "0")),
+            unit_usd=_money(breakdown.get("cost_per_unit_usd", "0")),
+            units=int(breakdown.get("num_units") or spec.num_samples),
+            application=str(breakdown.get("application", "structure_and_binding")),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )
+
+    async def start_prediction(
+        self, spec: PredictionSpec, *, idempotency_key: str
+    ) -> PredictionJob:
+        if not idempotency_key:
+            # Same rule as design: a retried submission must not bill twice.
+            raise ValueError("idempotency_key is required when starting a prediction")
+        body = self._prediction_payload(spec)
+        body["idempotency_key"] = idempotency_key
+        payload = await self._request(
+            "POST", PREDICTION_PATH, json=body, http_timeout=TIMEOUT_SUBMIT
+        )
+        return self.parse_prediction(payload)
+
+    async def get_prediction(self, job_id: str) -> PredictionJob:
+        return self.parse_prediction(await self._request("GET", f"{PREDICTION_PATH}/{job_id}"))
+
+    async def delete_prediction_data(self, job_id: str) -> None:
+        await self._request("POST", f"{PREDICTION_PATH}/{job_id}/delete-data")
+
+    # --- misc --------------------------------------------------------------
 
     async def list_curated_specifications(
         self, kind: Literal["nanobody", "antibody"] = "nanobody"
