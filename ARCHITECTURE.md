@@ -120,6 +120,12 @@ here reaches a bedside.
     only within this batch, requiring experimental validation.
 14. A user can export results (structures, SMILES, metrics, citations).
 15. Long-running jobs survive a page reload and a server restart.
+16. A user can speak a question in English, Yorùbá, Hausa, Igbo, Amharic or
+    Nigerian Pidgin; the transcript appears **in the composer for review**, with
+    the detected language shown, and is sent only when the user presses send.
+17. Every assistant message can be played aloud in the user's language.
+18. Speech spend is metered on the same ledger as science spend and shown
+    separately.
 
 **Non-functional**
 
@@ -187,6 +193,7 @@ MongoDB; change streams push updates to the open thread over SSE.
 | Database | MongoDB Atlas (replica set) | — | Change streams drive SSE; TTL cache; no Redis needed | Postgres + Redis + queue (more infra) |
 | Science engine | **Boltz API** | `boltz-2.1`, `adme-v1` | Covers *both* steps in one API with a usable commercial licence | AlphaFold 3 (no API, non-commercial), Chai-2 (no public API), DiffDock (pose only, no affinity/ranking/ADME) |
 | LLM | **OpenAI** | model ID verified against official docs at build time | User's decision; key already provisioned | — |
+| Voice | **Spitch** | `/v1` | Nigerian company building speech models *for African languages*; six languages incl. Yorùbá, Hausa, Igbo, Pidgin; verified working 2026-11-17 | Whisper/ElevenLabs (weak or absent on these languages, and not African-built) |
 | Auth | Argon2id + opaque session tokens (SHA-256 at rest) + double-submit CSRF | — | Already built and tested | JWT in localStorage (XSS exposure) |
 | Money | `Decimal`, stored as quantized strings | — | Binary floats must never touch currency | float |
 
@@ -251,6 +258,14 @@ serialised as strings.
 ### 6.7 Reconciler (`jobs/`)
 Exists. MongoDB scan is the work list; no queue. Resumes interrupted runs,
 harvests results, releases reservations.
+
+### 6.9 Voice layer (`voice/`) — new
+Wraps Spitch (`api.spitch.app/v1`). Three calls: `/transcriptions` (multipart,
+returns `detected_language`), `/speech` (returns wav bytes), `/diacritics` (restores
+Yorùbá tone marks on a transcript before display). Audio never touches the LLM —
+speech becomes text first, and text becomes speech last. **Failure:** the
+microphone and read-aloud buttons disable with a plain message; the product is
+fully usable by typing. See [docs/spitch-api-observed.md](docs/spitch-api-observed.md).
 
 ### 6.8 Residue numbering (`sources/residues.py`)
 Exists and is load-bearing. Reconciles UniProt position, PDB author numbering
@@ -525,6 +540,7 @@ Each ships green and pushed on its own.
 | **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
 | **M9** | Workbench UI: thread + artifact canvas + Mol\* + molecule table | Full flow by walkthrough, no JS errors |
 | **M10** | Landing page: the story, cited, with motion | motion-check 4/4; CLS ≤ 0.1 |
+| **M11a** | Voice: Spitch client, mic → composer draft with detected language, per-message read-aloud of the `spoken` field, metered | Six languages work by walkthrough; nothing auto-sends; speech spend visible |
 | **M11** | Export bundle | CIF + SMILES + metrics + citations download |
 | **M12** | Evals in CI, ship-verify, deploy, live verification | All suites green; live smoke clean |
 
@@ -540,6 +556,9 @@ Each ships green and pushed on its own.
 | **OpenAI model IDs uncertain** — aggregators disagree | Verify against OpenAI's official docs before writing agent code; isolate behind one module |
 | **No affinity value is returned at all** by `structure-and-binding` in test mode, despite a `binding` request | Measured 2026-11-17. Use `library-screen`'s `binding_confidence` for hit discovery. Do not promise predicted affinity until a live run shows one |
 | **Agent overclaims** | Verifier + caveat test + refusal eval suite |
+| **Speech mis-hears scientific terms** — "carbapenemase" in a Yorùbá sentence | The transcript is a *draft in the composer*, never sent automatically. User sees and edits it first |
+| **Read-aloud would speak SMILES strings as noise** | Each message carries a separate one-sentence `spoken` summary; the button plays that, not the body |
+| **Voice costs more than science** — $0.042 to read one answer aloud vs $0.025 to fold a protein | Metered on the budget ledger with its own line; read-aloud is opt-in per message, never automatic. $1 free credit is only ~12 minutes |
 | **Scope vs deadline** | M1–M9 are the demo; M10–M12 compress first |
 
 **Open questions for the user.**
@@ -562,4 +581,7 @@ Each ships green and pushed on its own.
 | 6 | 2026-11-17 | Spend gate as code, not prompt | A model must never be the thing standing between a user and a bill | Trust the prompt |
 | 7 | 2026-11-17 | Citation verifier as code, not prompt | Makes fabricated references structurally impossible rather than discouraged | Prompt instruction only |
 | 8 | 2026-11-17 | No toxicity claims anywhere | Nothing in the stack predicts toxicity; real discovery doesn't at this stage either | Imply it via "ADME" |
+| 10 | 2026-11-17 | Spitch for voice, six African languages | Built in Nigeria for these languages; verified working. "Any language" was never on offer and we do not claim it | Whisper + ElevenLabs |
+| 11 | 2026-11-17 | Transcripts are drafts, not commands | Speech models mis-hear scientific nouns; a wrong word must not silently spend money | Auto-send on transcription |
+| 12 | 2026-11-17 | Messages carry a separate `spoken` summary | Reading SMILES and accession codes aloud is noise | Read the message body with TTS |
 | 9 | 2026-11-17 | Keep v1 auth, budget ledger, reconciler, Mol\*, numbering | Tested, working, and the hardest parts to get right | Rebuild from scratch |
