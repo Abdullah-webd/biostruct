@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -12,12 +13,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from biostruct import __version__, errors
+from biostruct.agent.llm import OpenAIClient
+from biostruct.agent.tools.science import build_registry
 from biostruct.config import Env, Settings, get_settings
 from biostruct.db import database, ensure_indexes, startup_checks
 from biostruct.engines import BoltzHostedEngine
 from biostruct.jobs import Reconciler
-from biostruct.routers import auth, health, projects, runs, targets
+from biostruct.routers import agent, auth, health, projects, runs, targets
 from biostruct.sources import ScienceSources
+from biostruct.sources.chembl import ChemblClient
+from biostruct.sources.europepmc import EuropePMCClient
+from biostruct.sources.http import CachedHTTPClient
 from biostruct.storage import build_storage
 
 logging.basicConfig(
@@ -48,6 +54,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ncbi_email=cfg.ncbi_email,
             ncbi_api_key=cfg.ncbi_api_key.get_secret_value(),
         )
+        # The two sources the agent reaches for that the v1 panels do not use.
+        # Separate clients because each gets its own rate-limit bucket and TTL:
+        # Europe PMC answers change weekly, ChEMBL releases are months apart.
+        app.state.europepmc = EuropePMCClient(
+            CachedHTTPClient(source="europepmc", db=db, rate_per_second=3.0, burst=3)
+        )
+        app.state.chembl = ChemblClient(
+            CachedHTTPClient(
+                source="chembl",
+                db=db,
+                rate_per_second=2.0,
+                burst=2,
+                ttl=timedelta(days=7),
+                timeout=30.0,
+            )
+        )
+        app.state.llm = OpenAIClient(
+            api_key=cfg.openai_api_key.get_secret_value(),
+            model=cfg.agent_model,
+            effort=cfg.agent_reasoning_effort,
+        )
+        app.state.tool_registry = build_registry()
         app.state.storage = build_storage(
             backend=cfg.storage_backend,
             local_path=cfg.storage_local_path,
@@ -67,15 +95,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if cfg.run_reconciler:
             app.state.reconciler.start()
         log.info(
-            "started env=%s boltz_key_mode=%s storage=%s",
+            "started env=%s boltz_key_mode=%s storage=%s agent_model=%s agent=%s",
             cfg.env.value,
             cfg.boltz_key_mode(),
             cfg.storage_backend,
+            cfg.agent_model,
+            "ready" if app.state.llm.is_configured else "DISABLED (no OPENAI_API_KEY)",
         )
         try:
             yield
         finally:
             await app.state.reconciler.stop()
+            await app.state.llm.aclose()
             await app.state.engine.aclose()
             await app.state.sources.aclose()
             await database.close()
@@ -119,6 +150,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router, prefix=API_PREFIX)
     app.include_router(targets.router, prefix=API_PREFIX)
     app.include_router(runs.router, prefix=API_PREFIX)
+    app.include_router(agent.router, prefix=API_PREFIX)
 
     return app
 

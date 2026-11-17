@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from biostruct import errors, security
+from biostruct.agent.orchestrator import Orchestrator
 from biostruct.config import Settings, get_settings
 from biostruct.engines.base import DesignEngine
 from biostruct.models.user import User
@@ -17,7 +18,10 @@ from biostruct.repositories import (
     TargetRepository,
     UserRepository,
 )
+from biostruct.repositories.conversations import ConversationRepository
 from biostruct.sources import ScienceSources
+from biostruct.sources.chembl import ChemblClient
+from biostruct.sources.europepmc import EuropePMCClient
 
 
 def get_db(request: Request) -> AsyncIOMotorDatabase[dict[str, Any]]:
@@ -60,6 +64,48 @@ def get_runs(db: DbDep) -> RunRepository:
     return RunRepository(db)
 
 
+def get_conversations(db: DbDep, request: Request) -> ConversationRepository:
+    """The conversation store, with storage for oversized tool results.
+
+    A screen result can exceed Mongo's document limit, so the repository needs
+    the object store to spill into (ADR-20).
+    """
+    return ConversationRepository(db, storage=getattr(request.app.state, "storage", None))
+
+
+def get_chembl(request: Request) -> ChemblClient:
+    """One per process: it owns the HTTP pool and the rate-limit bucket."""
+    client = getattr(request.app.state, "chembl", None)
+    if client is None:  # pragma: no cover - only if startup was skipped
+        raise RuntimeError("chembl client not initialised")
+    return client  # type: ignore[no-any-return]
+
+
+def get_europepmc(request: Request) -> EuropePMCClient:
+    client = getattr(request.app.state, "europepmc", None)
+    if client is None:  # pragma: no cover - only if startup was skipped
+        raise RuntimeError("europepmc client not initialised")
+    return client  # type: ignore[no-any-return]
+
+
+def get_orchestrator(db: DbDep, request: Request) -> Orchestrator:
+    """A fresh orchestrator per request, over process-wide clients.
+
+    The orchestrator itself is stateless; the LLM client and the sources are
+    shared because they own connection pools.
+    """
+    llm = getattr(request.app.state, "llm", None)
+    registry = getattr(request.app.state, "tool_registry", None)
+    if llm is None or registry is None:  # pragma: no cover
+        raise RuntimeError("agent not initialised")
+    return Orchestrator(
+        llm=llm,
+        registry=registry,
+        conversations=get_conversations(db, request),
+        europepmc=getattr(request.app.state, "europepmc", None),
+    )
+
+
 def get_engine(request: Request) -> DesignEngine:
     """The configured design engine, created once at startup.
 
@@ -77,6 +123,10 @@ TargetsDep = Annotated[TargetRepository, Depends(get_targets)]
 SourcesDep = Annotated[ScienceSources, Depends(get_sources)]
 RunsDep = Annotated[RunRepository, Depends(get_runs)]
 EngineDep = Annotated[DesignEngine, Depends(get_engine)]
+ConversationsDep = Annotated[ConversationRepository, Depends(get_conversations)]
+ChemblDep = Annotated[ChemblClient, Depends(get_chembl)]
+EuropePMCDep = Annotated[EuropePMCClient, Depends(get_europepmc)]
+OrchestratorDep = Annotated[Orchestrator, Depends(get_orchestrator)]
 
 
 async def current_user(request: Request, users: UsersDep) -> User:

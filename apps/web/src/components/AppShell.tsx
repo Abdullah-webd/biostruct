@@ -61,12 +61,41 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-ground/85 backdrop-blur-md">
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
-          <Link
-            href="/projects"
-            className="display text-[17px] text-ink transition-opacity duration-[var(--dur-ui)] hover:opacity-70"
-          >
-            Biostruct
-          </Link>
+          <div className="flex items-baseline gap-5">
+            <Link
+              href="/sessions"
+              className="display text-[17px] text-ink transition-opacity duration-[var(--dur-ui)] hover:opacity-70"
+            >
+              Antidote
+            </Link>
+            <nav className="flex items-baseline gap-4 text-[13px]">
+              {[
+                { href: "/sessions", label: "Research" },
+                { href: "/projects", label: "Design runs" },
+              ].map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative transition-colors duration-[var(--dur-ui)] ${
+                      active ? "text-ink" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {item.label}
+                    {active ? (
+                      <motion.span
+                        layoutId="nav-underline"
+                        className="absolute -bottom-1 left-0 right-0 h-px bg-signal"
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                      />
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
           <div className="flex items-center gap-3">
             {user && (
               <span className="hidden text-[13px] text-muted sm:inline">{user.email}</span>

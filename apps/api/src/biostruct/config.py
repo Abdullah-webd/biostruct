@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     boltz_base_url: str = "https://api.boltz.bio"
     openai_api_key: SecretStr = SecretStr("")
     openai_realtime_model: str = "gpt-realtime-2.1"
+    #: The orchestrator's model. "Near-Astra performance for complex work at a
+    #: lower cost" at $2/$10 per MTok, verified on the live API 2026-11-17. The
+    #: agent chooses which scientific tool to call and a wrong call spends real
+    #: money on the wrong protein, so this is not a place for the cheapest
+    #: model. See docs/openai-api-observed.md.
+    agent_model: str = "gpt-6.1-sol"
+    #: "none" is rejected by this model family; "medium" is the API default.
+    agent_reasoning_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     openai_agents_disable_tracing: bool = True
 
     # --- storage -----------------------------------------------------------
