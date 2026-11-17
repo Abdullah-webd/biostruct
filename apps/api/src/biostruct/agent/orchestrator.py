@@ -24,6 +24,7 @@ spinner for that long is indistinguishable from a hang.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Sequence
@@ -449,6 +450,44 @@ class Orchestrator:
         )
 
 
+#: Sentinel yielded by ``with_heartbeat`` when nothing has happened for a while.
+HEARTBEAT = object()
+
+#: An SSE comment. Clients ignore it; proxies and TCP do not, which is the
+#: point — a turn can spend a minute inside one slow source, and a silent
+#: connection is one a proxy is entitled to close.
+HEARTBEAT_FRAME = ": keepalive\n\n"
+
+
+async def with_heartbeat(
+    source: AsyncIterator[AgentEvent], *, every: float = 12.0
+) -> AsyncIterator[Any]:
+    """Yield a heartbeat whenever the turn goes quiet for ``every`` seconds.
+
+    Implemented by racing the generator against a timer rather than by a
+    background task, so there is nothing to leak if the client disconnects
+    mid-turn.
+    """
+    iterator = source.__aiter__()
+    pending: asyncio.Task[Any] | None = None
+    try:
+        while True:
+            if pending is None:
+                pending = asyncio.ensure_future(iterator.__anext__())
+            done, _ = await asyncio.wait({pending}, timeout=every)
+            if not done:
+                yield HEARTBEAT
+                continue
+            task, pending = pending, None
+            try:
+                yield task.result()
+            except StopAsyncIteration:
+                return
+    finally:
+        if pending is not None:
+            pending.cancel()
+
+
 def event_to_sse(event: AgentEvent) -> str:
     """Serialise one event for the wire.
 
@@ -491,6 +530,8 @@ def event_to_sse(event: AgentEvent) -> str:
 
 
 __all__ = [
+    "HEARTBEAT",
+    "HEARTBEAT_FRAME",
     "HISTORY_MESSAGES",
     "MAX_STEPS",
     "SYSTEM_PROMPT",
@@ -504,4 +545,5 @@ __all__ = [
     "ToolFinished",
     "ToolStarted",
     "event_to_sse",
+    "with_heartbeat",
 ]

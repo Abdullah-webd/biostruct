@@ -11,9 +11,11 @@ nothing.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Sequence
 from decimal import Decimal
 from typing import Any
+from unittest.mock import patch
 
 import pytest_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -27,6 +29,8 @@ from biostruct.agent.llm import (
     TurnFinished,
 )
 from biostruct.agent.orchestrator import (
+    HEARTBEAT,
+    HEARTBEAT_FRAME,
     MAX_STEPS,
     SYSTEM_PROMPT,
     Completed,
@@ -36,6 +40,7 @@ from biostruct.agent.orchestrator import (
     ProposalRaised,
     ToolStarted,
     event_to_sse,
+    with_heartbeat,
 )
 from biostruct.agent.tools.base import Registry, Tool, ToolContext, ToolResultData, text
 from biostruct.agent.tools.science import build_registry
@@ -555,3 +560,56 @@ class TestToolFailureHandling:
         events = await collect(orch, session_id, ToolContext(user_id=USER, session_id=session_id))
         done = [e for e in events if isinstance(e, Completed)]
         assert done and "could not reach" in done[0].text.lower()
+
+
+class TestResilience:
+    """Added after a live run fell over: ChEMBL's target search began answering
+    500 with a 30-second hang, three retries with backoff ran past the client's
+    patience, and the stream ended with a draft on screen and no answer."""
+
+    async def test_a_hanging_tool_is_abandoned_rather_than_eating_the_turn(self) -> None:
+        async def never(args: dict[str, Any], ctx: ToolContext) -> ToolResultData:
+            await asyncio.sleep(60)
+            return ToolResultData(summary="too late")
+
+        registry = Registry(
+            [
+                Tool(
+                    name="slow",
+                    description="free, for testing",
+                    properties={"x": text("anything")},
+                    required=(),
+                    handler=never,
+                )
+            ]
+        )
+        with patch("biostruct.agent.tools.base.TOOL_TIMEOUT_SECONDS", 0.05):
+            result = await registry.run("slow", {}, ToolContext(user_id="u", session_id="s"))
+        assert isinstance(result, ToolResultData)
+        assert not result.ok
+        assert result.error == "timed out"
+        assert "carry on with what" in result.summary
+
+    async def test_a_quiet_turn_emits_a_heartbeat(self) -> None:
+        """A silent connection is one a proxy is entitled to close."""
+
+        async def slow_turn() -> AsyncIterator[Any]:
+            await asyncio.sleep(0.08)
+            yield Delta("finally")
+
+        seen = [e async for e in with_heartbeat(slow_turn(), every=0.02)]
+        assert seen.count(HEARTBEAT) >= 2
+        assert isinstance(seen[-1], Delta)
+
+    async def test_the_heartbeat_frame_is_a_comment_clients_ignore(self) -> None:
+        assert HEARTBEAT_FRAME.startswith(":")
+        assert HEARTBEAT_FRAME.endswith("\n\n")
+
+    async def test_a_busy_turn_is_not_slowed_by_the_heartbeat(self) -> None:
+        async def quick() -> AsyncIterator[Any]:
+            for i in range(3):
+                yield Delta(str(i))
+
+        seen = [e async for e in with_heartbeat(quick(), every=5.0)]
+        assert HEARTBEAT not in seen
+        assert len(seen) == 3

@@ -21,6 +21,7 @@ is what the model reasons from, so it is written for a reader, not as a dump.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -34,6 +35,12 @@ log = logging.getLogger(__name__)
 ToolName = str
 
 Spend = Literal["free", "paid"]
+
+#: How long one tool may take before the turn gives up on it. Generous enough
+#: for a slow-but-working source (UniProt and Europe PMC both answer in a few
+#: seconds), short enough that a researcher is not left watching a stream while
+#: a broken upstream is retried with backoff.
+TOOL_TIMEOUT_SECONDS = 45.0
 
 
 class ToolError(Exception):
@@ -223,7 +230,23 @@ class Registry:
                 error="unknown tool",
             )
         try:
-            result = await tool.handler(args, ctx)
+            result = await asyncio.wait_for(tool.handler(args, ctx), timeout=TOOL_TIMEOUT_SECONDS)
+        except TimeoutError:
+            # One sick upstream must not consume a whole turn. Measured the case
+            # this exists for: ChEMBL's target search started answering 500 with
+            # a 30-second hang, and three retries with backoff ran well past any
+            # reasonable time for a researcher to sit watching a stream.
+            log.warning("tool %s timed out after %ss", name, TOOL_TIMEOUT_SECONDS)
+            return ToolResultData(
+                summary=(
+                    f"The {name} tool took longer than {TOOL_TIMEOUT_SECONDS} seconds and was "
+                    "given up on, so that source is probably having trouble. Tell the "
+                    "researcher that this particular lookup failed, and carry on with what "
+                    "can be done without it."
+                ),
+                ok=False,
+                error="timed out",
+            )
         except ToolError as exc:
             return ToolResultData(summary=str(exc), ok=False, error=str(exc))
         except Exception as exc:  # a tool bug must not take the turn down
@@ -244,6 +267,7 @@ class Registry:
 ToolFactory = Callable[[], Awaitable[Registry]]
 
 __all__ = [
+    "TOOL_TIMEOUT_SECONDS",
     "Proposal",
     "Registry",
     "Spend",

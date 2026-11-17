@@ -162,6 +162,7 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
       const controller = new AbortController();
       abort.current = controller;
       const filter = createCitationFilter();
+      let terminated = false;
 
       try {
         for await (const event of sendMessage(sessionId, content, {
@@ -194,6 +195,7 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
               setLive((l) => ({ ...l, proposals: [...l.proposals, event.proposal] }));
               break;
             case "completed":
+              terminated = true;
               setLive((l) => ({
                 ...l,
                 draft: l.draft + filter.flush(),
@@ -204,9 +206,19 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
               }));
               break;
             case "failed":
+              terminated = true;
               setLive((l) => ({ ...l, failed: event.message }));
               break;
           }
+        }
+        if (!terminated && !controller.signal.aborted) {
+          // The stream ended with neither a completion nor a failure, so the
+          // client cannot tell a finished turn from a dropped connection. The
+          // server may still have written the answer, so reload and say so
+          // rather than leaving a draft on screen as though it were final.
+          setError(
+            "The connection to the turn dropped. Anything the agent finished has been saved below.",
+          );
         }
         await reload();
       } catch (e: unknown) {

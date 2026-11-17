@@ -24,7 +24,15 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from biostruct import errors
-from biostruct.agent.orchestrator import Failed, Started, event_to_sse
+from biostruct.agent.orchestrator import (
+    HEARTBEAT,
+    HEARTBEAT_FRAME,
+    Completed,
+    Failed,
+    Started,
+    event_to_sse,
+    with_heartbeat,
+)
 from biostruct.agent.tools.base import ToolContext
 from biostruct.deps import (
     ChemblDep,
@@ -253,14 +261,30 @@ async def send_message(
 
     async def body() -> AsyncIterator[str]:
         yield event_to_sse(Started(message_id=user_message.id, seq=user_message.seq))
+        completed = False
         try:
-            async for event in orchestrator.run_turn(
-                session_id=session_id, user_id=user.id, ctx=ctx
+            async for event in with_heartbeat(
+                orchestrator.run_turn(session_id=session_id, user_id=user.id, ctx=ctx)
             ):
+                if event is HEARTBEAT:
+                    yield HEARTBEAT_FRAME
+                    continue
+                if isinstance(event, (Completed, Failed)):
+                    completed = True
                 yield event_to_sse(event)
         except Exception as exc:  # the stream must close with a reason, not hang
             log.exception("agent turn crashed")
             yield event_to_sse(Failed(f"The turn failed: {exc}"))
+            completed = True
+        if not completed:
+            # The generator stopped without a terminal event. Measured once:
+            # a sick upstream was retried with backoff until the stream fell
+            # over, and the client was left with a draft and no answer. A
+            # client that sees the stream end with no terminal event cannot
+            # tell a finished turn from a dropped one, so always send one.
+            yield event_to_sse(
+                Failed("The turn ended without finishing. Reload the thread to see what was saved.")
+            )
 
     return StreamingResponse(
         body(),

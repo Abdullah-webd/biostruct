@@ -215,6 +215,9 @@ function parseFrame(frame: string): TurnEvent | null {
   let name = "";
   let data = "";
   for (const line of frame.split("\n")) {
+    // `: keepalive` — the server's heartbeat, so a turn that spends a minute
+    // inside one slow source does not look like a dead connection.
+    if (line.startsWith(":")) continue;
     if (line.startsWith("event: ")) name = line.slice(7).trim();
     else if (line.startsWith("data: ")) data += line.slice(6);
   }
