@@ -551,7 +551,7 @@ Each ships green and pushed on its own.
 | **M2** | `library-screen` + `adme` clients | Screen returns ranked metrics + ADME; filters reported; positive-control eval passes |
 | **M3** | `small-molecule/design` client | Returns novel SMILES with metrics |
 | **M4** | Europe PMC source + citation verifier | Invented citations provably stripped; unit tests |
-| **M5** | ChEMBL source + curated library | Library assembles with positive control present |
+| **M5** | ChEMBL source + curated library | Library assembles with positive control present — the control is chosen per Ambler class, ships in the repo so an outage cannot remove it, and carries its measured potency against the target so the run can judge itself |
 | **M6** | Session/message/artifact data model + migration | v1 projects readable; indexes in place |
 | **M7** | Agent orchestrator + tool layer + SSE streaming | Chat turn streams; tool calls visible; limits enforced |
 | **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
@@ -603,3 +603,6 @@ Each ships green and pushed on its own.
 | 12 | 2026-11-17 | Messages carry a separate `spoken` summary | Reading SMILES and accession codes aloud is noise | Read the message body with TTS |
 | 13 | 2026-11-17 | Voice is asymmetric: speak in your language, read the answer in English | Researchers read English fluently — the friction is in composing a question, not in reading a result. Translating scientific prose costs precision and implies these users need simplifying, which they do not | Translate output too (patronising, less precise); English-only input (keeps the friction) |
 | 9 | 2026-11-17 | Keep v1 auth, budget ledger, reconciler, Mol\*, numbering | Tested, working, and the hardest parts to get right | Rebuild from scratch |
+| 14 | 2026-11-17 | Positive controls ship in the repository, chosen per Ambler class | A ChEMBL outage must not be able to remove the one molecule that proves a screen works. Class matters: avibactam is an excellent class A control and a poor class B one, so a single global control would make a working screen look broken against NDM | Fetch controls at runtime; one global control |
+| 15 | 2026-11-17 | A library is reached through a target's measured activities, not molecule text search | Free-text molecule search returns mostly unnamed compounds; `activity?target_chembl_id=` returns binders *with* SMILES and a measured potency in one free call | Free-text search; ship a large static library |
+| 16 | 2026-11-17 | Substrate measurements (`Kcat`, `Km`) and `>` relations are excluded from libraries | They are evidence the molecule is *destroyed by* the enzyme, or that binding was **not** shown. Screening them is paying to confirm a known negative | Include everything measured against the target |

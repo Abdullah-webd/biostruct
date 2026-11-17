@@ -1,0 +1,97 @@
+{
+    "atc_classifications": [],
+    "availability_type": 1,
+    "biotherapeutic": null,
+    "black_box_warning": 0,
+    "chemical_probe": 0,
+    "chirality": 1,
+    "cross_references": [],
+    "dosed_ingredient": false,
+    "first_approval": 2015,
+    "first_in_class": 0,
+    "helm_notation": null,
+    "inorganic_flag": 0,
+    "max_phase": "4.0",
+    "molecule_chembl_id": "CHEMBL1689063",
+    "molecule_hierarchy": {
+        "active_chembl_id": "CHEMBL1689063",
+        "molecule_chembl_id": "CHEMBL1689063",
+        "parent_chembl_id": "CHEMBL1689063"
+    },
+    "molecule_properties": {
+        "alogp": "-1.53",
+        "aromatic_rings": 0,
+        "full_molformula": "C7H11N3O6S",
+        "full_mwt": "265.25",
+        "hba": 5,
+        "hbd": 2,
+        "heavy_atoms": 17,
+        "mw_freebase": "265.25",
+        "np_likeness_score": "-0.25",
+        "num_ro5_violations": 0,
+        "psa": "130.24",
+        "qed_weighted": "0.60",
+        "ro3_pass": "N",
+        "rtb": 3
+    },
+    "molecule_structures": {
+        "canonical_smiles": "NC(=O)[C@@H]1CC[C@@H]2CN1C(=O)N2OS(=O)(=O)O",
+        "molfile": "\n     RDKit          2D\n\n 18 19  0  0  0  0  0  0  0  0999 V2000\n    2.9080   -3.2940    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.7327   -3.3187    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    4.2661   -2.6894    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    5.2840   -3.6922    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0\n    5.0646   -2.8970    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    5.6435   -2.3092    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    4.1067   -1.8799    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0\n    2.4132   -2.6339    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.1657   -2.0453    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    2.6207   -1.8355    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0\n    1.9406   -3.3102    0.0000 H   0  0  0  0  0  0  0  0  0  0  0  0\n    3.3744   -1.4999    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    3.3991   -0.6753    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.2148   -1.5803    0.0000 S   0  0  0  0  0  0  0  0  0  0  0  0\n    0.4381   -1.8586    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.9914   -1.3020    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    0.9365   -0.8037    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n    1.4930   -2.3570    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  1  8  1  0\n  2  3  1  0\n  3  5  1  6\n  4  5  1  0\n  5  6  2  0\n  7  3  1  0\n  7 12  1  0\n  8  9  1  0\n  8 10  1  0\n  8 11  1  6\n 10 12  1  0\n 10 16  1  0\n 12 13  2  0\n 14 15  2  0\n 14 16  1  0\n 14 17  1  0\n 18 14  2  0\n  7  9  1  0\nM  END\n> <chembl_id>\nCHEMBL1689063\n\n> <chembl_pref_name>\nAVIBACTAM",
+        "standard_inchi": "InChI=1S/C7H11N3O6S/c8-6(11)5-2-1-4-3-9(5)7(12)10(4)16-17(13,14)15/h4-5H,1-3H2,(H2,8,11)(H,13,14,15)/t4-,5+/m1/s1",
+        "standard_inchi_key": "NDCUAPJVLWFHHB-UHNVWZDZSA-N"
+    },
+    "molecule_synonyms": [
+        {
+            "molecule_synonym": "Avibactam",
+            "syn_type": "INN",
+            "synonyms": "AVIBACTAM"
+        },
+        {
+            "molecule_synonym": "Avibactam",
+            "syn_type": "MERCK_INDEX",
+            "synonyms": "AVIBACTAM"
+        },
+        {
+            "molecule_synonym": "Avibactam",
+            "syn_type": "OTHER",
+            "synonyms": "AVIBACTAM"
+        },
+        {
+            "molecule_synonym": "Avibactam",
+            "syn_type": "USAN",
+            "synonyms": "AVIBACTAM"
+        },
+        {
+            "molecule_synonym": "Avibactam component of zavicefta",
+            "syn_type": "TRADE_NAME",
+            "synonyms": "AVIBACTAM COMPONENT OF ZAVICEFTA"
+        },
+        {
+            "molecule_synonym": "Nxl-104",
+            "syn_type": "TRADE_NAME",
+            "synonyms": "NXL-104"
+        },
+        {
+            "molecule_synonym": "Nxl-104 free acid",
+            "syn_type": "OTHER",
+            "synonyms": "NXL-104 FREE ACID"
+        }
+    ],
+    "molecule_type": "Small molecule",
+    "natural_product": 1,
+    "oral": false,
+    "orphan": 0,
+    "parenteral": true,
+    "polymer_flag": 0,
+    "pref_name": "AVIBACTAM",
+    "prodrug": 0,
+    "structure_type": "MOL",
+    "therapeutic_flag": true,
+    "topical": false,
+    "usan_stem": "-bactam",
+    "usan_stem_definition": "beta-lactamase inhibitors",
+    "usan_substem": "-bactam",
+    "usan_year": 2012,
+    "veterinary": 0,
+    "withdrawn_flag": false
+}
