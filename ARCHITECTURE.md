@@ -393,13 +393,44 @@ erDiagram
 - **RESULT** — run_id, metrics, SMILES or sequence, structure ref, ADME,
   warnings.
 
-**Indexes.** `sessions(user_id, updated_at)`, `messages(session_id, created_at)`,
-`runs(status)` (the reconciler's work list), `runs(idempotency_key)` unique,
-`artifacts(session_id, created_at)`.
+**Collection names.** The research session lives in **`research_sessions`**, not
+`sessions`. `sessions` already holds *authentication* sessions, keyed by the
+SHA-256 of a cookie token, with a **TTL index that deletes them**. A research
+conversation written there would expire itself and take a researcher's work
+with it. Nothing on the auth side was renamed (ADR-17).
+
+**Ordering.** Messages are ordered by an integer `seq` per session, allocated by
+`$inc` on the session document inside `find_one_and_update` — one atomic
+operation, so concurrent appends get distinct positions. Timestamps cannot do
+this: an assistant turn and the tool result it triggered are routinely written
+in the same millisecond, and a thread rendered out of order misattributes facts
+to the wrong step. `messages(session_id, seq)` is **unique**, so a bug in
+allocation fails loudly at write time instead of silently reordering research.
+
+**Large tool results.** Mongo refuses any document over 16 MB, and a
+2000-molecule library or a structure file gets there. A payload over 256 KB is
+written to object storage and the message keeps a `payload_ref`; the `summary`
+(what the model reasons from) always stays inline. If storage is unavailable the
+summary survives and the loss of detail is recorded on the result — losing a
+whole message because the payload would not fit would discard a result we had
+just paid for.
+
+**Indexes.** `research_sessions(user_id, last_message_at, created_at)` (sorted
+by last activity, not creation — a researcher returning wants the conversation
+they were in), `research_sessions(user_id, status)`,
+`research_sessions(migrated_from)` partial, `messages(session_id, seq)` **unique**,
+`messages(user_id, created_at)`, `artifacts(session_id, created_at)`,
+`artifacts(run_id)` partial, `runs(status)` (the reconciler's work list),
+`runs(idempotency_key)` unique.
 **Retention.** Boltz presigned artifacts expire in 7 days — we download and
 store structure files we need. TTL collection for the source cache.
-**Migrations.** Additive; v1 collections (`projects`, `targets`) remain readable
-and are migrated by a one-shot script into `sessions`.
+**Migrations.** Additive and non-destructive. `projects` is never written to and
+never dropped, so v1 remains readable and a bad conversion is re-run rather than
+reconstructed. **A research session keeps the `_id` of the project it came
+from** (ADR-18): `targets`, `design_runs` and `candidates` all reference
+`project_id`, so keeping the id makes the migration a document copy with nothing
+to re-point. Run it with `python scripts/migrate.py --dry-run` first; it is
+idempotent, resumable, and returns a report rather than printing one.
 
 ---
 
@@ -552,7 +583,7 @@ Each ships green and pushed on its own.
 | **M3** | `small-molecule/design` client | Returns novel SMILES with metrics |
 | **M4** | Europe PMC source + citation verifier | Invented citations provably stripped; unit tests |
 | **M5** | ChEMBL source + curated library | Library assembles with positive control present — the control is chosen per Ambler class, ships in the repo so an outage cannot remove it, and carries its measured potency against the target so the run can judge itself |
-| **M6** | Session/message/artifact data model + migration | v1 projects readable; indexes in place |
+| **M6** | Session/message/artifact data model + migration | v1 projects readable and untouched; the migrated session keeps the project's `_id`; message order is a unique atomic `seq`; oversized tool results spill to storage; indexes in place |
 | **M7** | Agent orchestrator + tool layer + SSE streaming | Chat turn streams; tool calls visible; limits enforced |
 | **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
 | **M9** | Workbench UI: thread + artifact canvas + Mol\* + molecule table | Full flow by walkthrough, no JS errors |
@@ -606,3 +637,7 @@ Each ships green and pushed on its own.
 | 14 | 2026-11-17 | Positive controls ship in the repository, chosen per Ambler class | A ChEMBL outage must not be able to remove the one molecule that proves a screen works. Class matters: avibactam is an excellent class A control and a poor class B one, so a single global control would make a working screen look broken against NDM | Fetch controls at runtime; one global control |
 | 15 | 2026-11-17 | A library is reached through a target's measured activities, not molecule text search | Free-text molecule search returns mostly unnamed compounds; `activity?target_chembl_id=` returns binders *with* SMILES and a measured potency in one free call | Free-text search; ship a large static library |
 | 16 | 2026-11-17 | Substrate measurements (`Kcat`, `Km`) and `>` relations are excluded from libraries | They are evidence the molecule is *destroyed by* the enzyme, or that binding was **not** shown. Screening them is paying to confirm a known negative | Include everything measured against the target |
+| 17 | 2026-11-17 | Research conversations live in `research_sessions`, not `sessions` | `sessions` is auth, keyed by a cookie hash and **TTL-deleted**. One word for two concepts, one of which expires itself, is how someone eventually deletes a researcher's work | Rename the auth collection (invalidates every cookie); one collection with a discriminator |
+| 18 | 2026-11-17 | A migrated session keeps the v1 project's `_id` | `targets`, `design_runs` and `candidates` all reference `project_id`. Minting new ids means rewriting every reference, and a rewrite that half-completes orphans paid results with no way to tell which half ran | New ids + reference rewrite; dual-read shim |
+| 19 | 2026-11-17 | Message order is an atomic integer `seq`, uniquely indexed | An assistant turn and its tool result are written in the same millisecond, so timestamps give no defined order, and a thread rendered out of order misattributes facts to the wrong step | Order by `created_at`; client-side sequencing |
+| 20 | 2026-11-17 | Tool results over 256 KB spill to object storage, summary stays inline | Mongo's limit is 16 MB and a 2000-molecule screen exceeds it. Failing the write at the end of a paid run would discard a result we had just paid for | Store everything inline; truncate the payload |
