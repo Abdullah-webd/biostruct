@@ -19,7 +19,7 @@ from collections.abc import AsyncIterator
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, File, Form, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +33,7 @@ from biostruct.agent.orchestrator import (
     event_to_sse,
     with_heartbeat,
 )
+from biostruct.agent.runner import AgentRun, RunRejected
 from biostruct.agent.tools.base import ToolContext
 from biostruct.deps import (
     ChemblDep,
@@ -41,6 +42,7 @@ from biostruct.deps import (
     CurrentUser,
     EuropePMCDep,
     OrchestratorDep,
+    RunnerDep,
     SettingsDep,
     SourcesDep,
 )
@@ -53,6 +55,7 @@ from biostruct.models.conversation import (
     SessionStatus,
     SessionUpdate,
 )
+from biostruct.voice import VoiceUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -73,12 +76,18 @@ class SendMessage(BaseModel):
 
 
 class SessionOut(BaseModel):
+    """One research session, as the interface needs it.
+
+    No budget fields. The ledger still exists server-side and still guards a
+    run, but a per-session spending allowance is not what this product is
+    about, and putting a dollar counter in a researcher's eyeline made the tool
+    look like a billing console instead of an instrument.
+    """
+
     id: str
     title: str
     status: SessionStatus
     message_count: int
-    budget_limit_usd: str
-    budget_remaining_usd: str
     created_at: str
     last_message_at: str | None
 
@@ -89,13 +98,48 @@ class SessionOut(BaseModel):
             title=session.display_title(),
             status=session.status,
             message_count=session.message_count,
-            budget_limit_usd=str(session.budget.limit_usd),
-            budget_remaining_usd=str(session.budget.remaining_usd),
             created_at=session.created_at.isoformat(),
             last_message_at=(
                 session.last_message_at.isoformat() if session.last_message_at else None
             ),
         )
+
+
+class RunOut(BaseModel):
+    """A piece of scientific work, in whatever state it has reached."""
+
+    id: str
+    kind: str
+    state: str
+    title: str
+    percent: int
+    done: int
+    total: int
+    error: str
+    artifact_id: str
+    livemode: bool
+
+    @classmethod
+    def of(cls, run: AgentRun) -> RunOut:
+        return cls(
+            id=run.id,
+            kind=run.kind.value,
+            state=run.state.value,
+            title=run.title,
+            percent=run.percent,
+            done=run.done,
+            total=run.total,
+            error=run.error,
+            artifact_id=run.artifact_id,
+            livemode=run.livemode,
+        )
+
+
+class StartRun(BaseModel):
+    """Confirming a proposal the agent made."""
+
+    tool: str = Field(min_length=1, max_length=64)
+    arguments: dict[str, Any] = Field(default_factory=dict)
 
 
 class MessageOut(BaseModel):
@@ -198,6 +242,127 @@ async def list_messages(
         raise errors.not_found("session")
     messages = await conversations.list_messages(session_id, user_id=user.id, after_seq=after_seq)
     return [_message_out(m) for m in messages]
+
+
+class TranscriptOut(BaseModel):
+    """A transcript, as a draft for the researcher to check.
+
+    Deliberately not sent anywhere. Speech models mis-hear scientific nouns —
+    we measured "Klebsiella" coming back as "cleps ella" — and a mis-heard
+    organism must never be the thing that starts a paid run.
+    """
+
+    text: str
+    english: str
+    language: str
+    language_name: str
+    translated: bool
+
+
+@router.post("/voice/transcribe", dependencies=[CsrfDep])
+async def transcribe(
+    user: CurrentUser,
+    request: Request,
+    audio: UploadFile = File(...),
+    language: str = Form(""),
+) -> TranscriptOut:
+    """Turn a recording into text the researcher can edit and send.
+
+    ``language`` is optional: Spitch detects it and reports which it heard, so
+    nobody has to choose from a menu before they can speak.
+    """
+    voice = getattr(request.app.state, "voice", None)
+    if voice is None or not voice.is_configured:
+        raise errors.validation_problem(
+            "Speech is not available on this server. You can still type your question."
+        )
+    body = await audio.read()
+    try:
+        transcript = await voice.transcribe(
+            body, filename=audio.filename or "speech.webm", language=language
+        )
+    except VoiceUnavailable as exc:
+        raise errors.validation_problem(str(exc)) from exc
+    return TranscriptOut(
+        text=transcript.text,
+        english=transcript.for_agent,
+        language=transcript.language,
+        language_name=transcript.language_name,
+        translated=transcript.translated,
+    )
+
+
+@router.get("/{session_id}/artifacts/{artifact_id}/structure.cif")
+async def get_artifact_structure(
+    session_id: str,
+    artifact_id: str,
+    user: CurrentUser,
+    conversations: ConversationsDep,
+    request: Request,
+    sample: int = 0,
+) -> Response:
+    """Serve a predicted structure from our own storage.
+
+    Never Boltz's URL: theirs is presigned and expires, so handing it to a
+    browser produces a viewer that works for half an hour and then does not.
+    """
+    artifacts = await conversations.list_artifacts(session_id, user_id=user.id)
+    found = next((a for a in artifacts if a.id == artifact_id), None)
+    if found is None:
+        raise errors.not_found("Structure")
+    samples = found.payload.get("samples") or []
+    key = found.storage_key
+    if 0 <= sample < len(samples):
+        key = str(samples[sample].get("structure_key") or "") or key
+    if not key:
+        raise errors.not_found("Structure file")
+    try:
+        data = await request.app.state.storage.get_bytes(key)
+    except Exception as exc:
+        raise errors.ProblemError(
+            code="structure_unavailable",
+            title="Structure could not be read",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    return Response(
+        content=data,
+        media_type="chemical/x-cif",
+        headers={
+            "content-disposition": f'inline; filename="{artifact_id}.cif"',
+            "cache-control": "private, max-age=3600",
+        },
+    )
+
+
+@router.post("/{session_id}/runs", status_code=status.HTTP_202_ACCEPTED, dependencies=[CsrfDep])
+async def start_run(
+    session_id: str,
+    data: StartRun,
+    user: CurrentUser,
+    runner: RunnerDep,
+) -> RunOut:
+    """Confirm a proposal and start the work.
+
+    Returns as soon as the run is recorded — a fold takes minutes, and holding
+    the request open for them would time out in every proxy between here and
+    the researcher. Progress is read from ``GET /runs``.
+    """
+    try:
+        run = await runner.start(
+            session_id=session_id,
+            user_id=user.id,
+            tool=data.tool,
+            arguments=data.arguments,
+        )
+    except RunRejected as exc:
+        raise errors.validation_problem(str(exc)) from exc
+    return RunOut.of(run)
+
+
+@router.get("/{session_id}/runs")
+async def list_runs(session_id: str, user: CurrentUser, runner: RunnerDep) -> list[RunOut]:
+    return [RunOut.of(r) for r in await runner.list_runs(session_id, user_id=user.id)]
 
 
 @router.get("/{session_id}/artifacts")

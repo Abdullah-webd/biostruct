@@ -14,17 +14,20 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from biostruct import __version__, errors
 from biostruct.agent.llm import OpenAIClient
+from biostruct.agent.runner import AgentRunner
 from biostruct.agent.tools.science import build_registry
 from biostruct.config import Env, Settings, get_settings
 from biostruct.db import database, ensure_indexes, startup_checks
 from biostruct.engines import BoltzHostedEngine
 from biostruct.jobs import Reconciler
+from biostruct.repositories.conversations import ConversationRepository
 from biostruct.routers import agent, auth, health, projects, runs, targets
 from biostruct.sources import ScienceSources
 from biostruct.sources.chembl import ChemblClient
 from biostruct.sources.europepmc import EuropePMCClient
 from biostruct.sources.http import CachedHTTPClient
 from biostruct.storage import build_storage
+from biostruct.voice import SpitchClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             effort=cfg.agent_reasoning_effort,
         )
         app.state.tool_registry = build_registry()
+        app.state.voice = SpitchClient(api_key=cfg.spitch_api_key.get_secret_value())
         app.state.storage = build_storage(
             backend=cfg.storage_backend,
             local_path=cfg.storage_local_path,
@@ -91,22 +95,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # The reconciler runs in-process here for convenience. In production it
         # is a separate Railway service, so that a web deploy cannot interrupt a
         # harvest mid-flight (ARCHITECTURE.md §14).
+        # After the engine and storage, both of which it uses: a fold's CIF is
+        # pulled into our own storage before Boltz's presigned link expires.
+        app.state.runner = AgentRunner(
+            db=db,
+            engine=app.state.engine,
+            conversations=ConversationRepository(db, storage=app.state.storage),
+            sources=app.state.sources,
+            chembl=app.state.chembl,
+            storage=app.state.storage,
+        )
         app.state.reconciler = Reconciler(db=db, engine=app.state.engine, storage=app.state.storage)
         if cfg.run_reconciler:
             app.state.reconciler.start()
         log.info(
-            "started env=%s boltz_key_mode=%s storage=%s agent_model=%s agent=%s",
+            "started env=%s boltz_key_mode=%s storage=%s agent_model=%s agent=%s voice=%s",
             cfg.env.value,
             cfg.boltz_key_mode(),
             cfg.storage_backend,
             cfg.agent_model,
             "ready" if app.state.llm.is_configured else "DISABLED (no OPENAI_API_KEY)",
+            "ready" if app.state.voice.is_configured else "off",
         )
         try:
             yield
         finally:
             await app.state.reconciler.stop()
+            await app.state.runner.shutdown()
             await app.state.llm.aclose()
+            await app.state.voice.aclose()
             await app.state.engine.aclose()
             await app.state.sources.aclose()
             await database.close()

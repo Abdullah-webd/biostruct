@@ -70,6 +70,7 @@ _COLLECTIONS = (
     "research_sessions",
     "messages",
     "artifacts",
+    "agent_runs",
 )
 
 

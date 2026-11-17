@@ -112,6 +112,21 @@ def forbidden() -> ProblemError:
     )
 
 
+def validation_problem(detail: str) -> ProblemError:
+    """A request we understood but cannot carry out, with a readable reason.
+
+    Distinct from FastAPI's schema validation: the body was well-formed, the
+    work it asked for is the problem — no sequence to fold, a library that came
+    back empty, a tool that is not runnable.
+    """
+    return ProblemError(
+        code="validation_failed",
+        title="That cannot be run",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=detail,
+    )
+
+
 def budget_exceeded(detail: str, **extra: Any) -> ProblemError:
     return ProblemError(
         code="budget_exceeded",

@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from biostruct import errors, security
 from biostruct.agent.orchestrator import Orchestrator
+from biostruct.agent.runner import AgentRunner
 from biostruct.config import Settings, get_settings
 from biostruct.engines.base import DesignEngine
 from biostruct.models.user import User
@@ -88,6 +89,19 @@ def get_europepmc(request: Request) -> EuropePMCClient:
     return client  # type: ignore[no-any-return]
 
 
+def get_runner(request: Request) -> AgentRunner:
+    """One runner per process, created at startup.
+
+    It owns the background tasks supervising live folds and screens, so a
+    per-request instance would let the event loop collect a job that is being
+    billed right now.
+    """
+    runner = getattr(request.app.state, "runner", None)
+    if runner is None:  # pragma: no cover - only if startup was skipped
+        raise RuntimeError("agent runner not initialised")
+    return runner  # type: ignore[no-any-return]
+
+
 def get_orchestrator(db: DbDep, request: Request) -> Orchestrator:
     """A fresh orchestrator per request, over process-wide clients.
 
@@ -127,6 +141,7 @@ ConversationsDep = Annotated[ConversationRepository, Depends(get_conversations)]
 ChemblDep = Annotated[ChemblClient, Depends(get_chembl)]
 EuropePMCDep = Annotated[EuropePMCClient, Depends(get_europepmc)]
 OrchestratorDep = Annotated[Orchestrator, Depends(get_orchestrator)]
+RunnerDep = Annotated[AgentRunner, Depends(get_runner)]
 
 
 async def current_user(request: Request, users: UsersDep) -> User:

@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     boltz_api_key: SecretStr = SecretStr("")
     boltz_base_url: str = "https://api.boltz.bio"
     openai_api_key: SecretStr = SecretStr("")
+    #: African-language speech (https://docs.spitch.app). Input only: a
+    #: researcher speaks their own language, the answer comes back in English.
+    spitch_api_key: SecretStr = SecretStr("")
     openai_realtime_model: str = "gpt-realtime-2.1"
     #: The orchestrator's model. "Near-Astra performance for complex work at a
     #: lower cost" at $2/$10 per MTok, verified on the live API 2026-11-17. The

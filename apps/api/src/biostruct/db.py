@@ -180,6 +180,14 @@ async def ensure_indexes(db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         partialFilterExpression={"run_id": {"$type": "string"}},
     )
 
+    # The paid work an agent session has started.
+    await db.agent_runs.create_index(
+        [("session_id", ASCENDING), ("created_at", ASCENDING)], name="agent_runs_session"
+    )
+    # Finds work left running when the process died, so it can be reported as
+    # interrupted rather than spinning forever in the interface.
+    await db.agent_runs.create_index([("state", ASCENDING)], name="agent_runs_state")
+
     # Indexes for collections that arrive in later milestones are created with
     # those milestones, not pre-emptively here.
 
