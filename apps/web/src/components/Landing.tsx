@@ -125,6 +125,70 @@ export default function Landing() {
         .from("[data-num-row]", { xPercent: -4, opacity: 0, stagger: 0.25, duration: 1 })
         .to("[data-num-converge]", { opacity: 1, duration: 0.8 }, 0.6);
 
+      // The remaining sections each get their own treatment. Repeating one
+      // fade-up down the page is the single clearest tell of generated work,
+      // so the gesture changes with what the section is doing: a mechanism
+      // explained line by line, a list counted off, a caveat uncovered, an
+      // invitation that arrives.
+
+      // "A bacterium does not resist a drug" — the heading lands as a
+      // statement, then the explanation follows it in.
+      const mechanismHeading = new SplitText("[data-mechanism] h2", { type: "lines" });
+      gsap
+        .timeline({
+          scrollTrigger: { trigger: "[data-mechanism]", start: "top 72%" },
+          defaults: { ease: "expo.out" },
+        })
+        .from(mechanismHeading.lines, {
+          yPercent: 110,
+          opacity: 0,
+          duration: 0.9,
+          stagger: 0.07,
+        })
+        .from("[data-mechanism] p", { x: 18, opacity: 0, duration: 0.7, stagger: 0.1 }, 0.25);
+
+      // The three capabilities are counted off: each rule draws across before
+      // its item appears, so the list reads as enumerated rather than revealed.
+      gsap
+        .timeline({
+          scrollTrigger: { trigger: "[data-capabilities]", start: "top 70%" },
+          defaults: { ease: "expo.out" },
+        })
+        .from("[data-capabilities] li", {
+          scaleX: 0,
+          transformOrigin: "left center",
+          duration: 0.55,
+          stagger: 0.12,
+        })
+        .from(
+          "[data-capabilities] li > *",
+          { y: 14, opacity: 0, duration: 0.6, stagger: 0.05 },
+          0.2,
+        );
+
+      // The caveats are uncovered rather than floated in — a wipe, because the
+      // point of the section is that nothing is being hidden.
+      gsap
+        .timeline({
+          scrollTrigger: { trigger: "[data-caveats]", start: "top 72%" },
+          defaults: { ease: "expo.out" },
+        })
+        .from("[data-caveats] h2", {
+          clipPath: "inset(0 100% 0 0)",
+          duration: 0.9,
+        })
+        .from("[data-caveats] p", { opacity: 0, y: 10, duration: 0.7, stagger: 0.12 }, 0.2);
+
+      // The close simply arrives.
+      gsap
+        .timeline({
+          scrollTrigger: { trigger: "[data-close]", start: "top 78%" },
+          defaults: { ease: "expo.out" },
+        })
+        .from("[data-close] h2", { y: 20, opacity: 0, duration: 0.8 })
+        .from("[data-close] p", { y: 14, opacity: 0, duration: 0.6 }, 0.12)
+        .from("[data-close] a", { scale: 0.94, opacity: 0, duration: 0.6 }, 0.22);
+
       return () => window.clearTimeout(viewerTimer);
     },
     { scope: root },
@@ -271,7 +335,7 @@ export default function Landing() {
         </section>
 
         {/* --- why it happens -------------------------------------------- */}
-        <section className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
+        <section data-mechanism className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
             <h2 className="display text-[clamp(1.7rem,3.2vw,2.6rem)] leading-tight">
               A bacterium does not resist a drug. It makes a protein that
@@ -304,7 +368,7 @@ export default function Landing() {
             <h2 className="display mb-12 max-w-2xl text-[clamp(1.7rem,3.2vw,2.6rem)] leading-tight">
               Three things, and nothing it cannot do.
             </h2>
-            <ol className="grid gap-10 md:grid-cols-3 md:gap-8">
+            <ol data-capabilities className="grid gap-10 md:grid-cols-3 md:gap-8">
               {CAPABILITIES.map((step) => (
                 <li key={step.n} className="border-t border-line pt-5">
                   <span className="font-mono text-[11px] tracking-[0.1em] text-faint">
@@ -321,7 +385,7 @@ export default function Landing() {
         </section>
 
         {/* --- the honesty section --------------------------------------- */}
-        <section className="border-t border-line bg-wash">
+        <section data-caveats className="border-t border-line bg-wash">
           <div className="mx-auto max-w-[1240px] px-6 py-20 lg:py-28">
             <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
               <h2 className="display text-[clamp(1.7rem,3.2vw,2.6rem)] leading-tight">
@@ -353,7 +417,7 @@ export default function Landing() {
 
         {/* --- close ------------------------------------------------------ */}
         <section className="border-t border-line">
-          <div className="mx-auto max-w-[1240px] px-6 py-20 text-center lg:py-28">
+          <div data-close className="mx-auto max-w-[1240px] px-6 py-20 text-center lg:py-28">
             <h2 className="display mx-auto max-w-2xl text-[clamp(1.7rem,3.2vw,2.6rem)] leading-tight">
               Start with the infection in front of you.
             </h2>
