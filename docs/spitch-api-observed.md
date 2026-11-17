@@ -143,3 +143,56 @@ Six languages, all African or Nigerian English. That is a far stronger and more
 honest claim than "any language", and it is the actual point: these are the
 languages spoken in the hospitals where these infections kill people. The UI
 names the six rather than implying a universal translator.
+
+---
+
+## The full loop, measured 2026-11-17
+
+This is the product, not an accessory: a researcher works **entirely in their
+own language**. Measured end to end with a real Yorùbá question.
+
+```
+researcher speaks Yorùbá
+  → POST /v1/transcriptions      detected_language: "yo"
+  → POST /v1/translate yo→en     English pivot
+  → agent reasons in English, calls Boltz/UniProt/Europe PMC
+  → POST /v1/translate en→yo     answer in Yorùbá
+  → POST /v1/diacritics          tone marks restored
+  → POST /v1/speech              answer spoken in Yorùbá
+```
+
+### Observed, verbatim
+
+| Step | Result |
+|---|---|
+| Spoken | `Kí ni ìdí tí àwọn òògùn apakòkòrò kò fi ń ṣiṣẹ́ lórí àrùn Klebsiella mọ́?` |
+| Heard | `…lórí àrùn **cleps ella** mọ́` ← mis-heard |
+| Translated to English | `Why don't antibiotics work on **Klebsiella** anymore?` ← **recovered** |
+| Answer in Yorùbá | `Klebsiella pneumoniae máa ń ṣe ensaemusi kan tí a ń pè ní KPC carbapenemase. Ó máa ń fọ àpòrò-ara náà káàkiri kí oògùn náà tó lè ṣiṣẹ́.` |
+| Hausa | `Klebsiella pneumoniae tana samar da wani enzyme da ake kira KPC carbapenemase…` |
+| Igbo | `Klebsiella pneumoniae na-emepụta ensaem a na-akpọ KPC carbapenemase…` |
+
+### Three findings
+
+**1. Translation repairs mis-heard scientific terms.** STT returned
+`cleps ella`; the translator returned `Klebsiella`. It has enough context to
+fix what the speech model mangled. This does not remove the need to show the
+user their transcript, but it means the pipeline is more robust than the raw
+STT accuracy suggests.
+
+**2. Scientific nouns survive translation correctly.** `KPC carbapenemase`
+stayed in English; `enzyme` became `ensaemusi` and `molecule` became
+`molikula` — transliterations a Yorùbá speaker reads naturally. Hausa kept
+`enzyme`, Igbo used `ensaem`. This is how these researchers actually speak and
+we did nothing to arrange it.
+
+**3. English is the right pivot, and the user never sees it.** The agent
+reasons, calls tools and reads papers in English, where both the model and the
+literature are strongest. Translation happens at the edges only. The researcher
+asks and is answered in their own language throughout.
+
+### What stays in English, honestly
+
+Papers are written in English, so citation titles and abstracts stay English
+and are labelled as such. We translate the agent's *explanation* of a paper,
+never fake a translated title.

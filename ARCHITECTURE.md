@@ -120,12 +120,20 @@ here reaches a bedside.
     only within this batch, requiring experimental validation.
 14. A user can export results (structures, SMILES, metrics, citations).
 15. Long-running jobs survive a page reload and a server restart.
-16. A user can speak a question in English, Yorùbá, Hausa, Igbo, Amharic or
-    Nigerian Pidgin; the transcript appears **in the composer for review**, with
-    the detected language shown, and is sent only when the user presses send.
-17. Every assistant message can be played aloud in the user's language.
-18. Speech spend is metered on the same ledger as science spend and shown
-    separately.
+16. **A researcher can do the entire job in their own language.** They set a
+    session language once — English, Yorùbá, Hausa, Igbo, Amharic or Nigerian
+    Pidgin — and from then on they ask, read and hear everything in it.
+17. A user can speak a question; the transcript appears **in the composer for
+    review** in their own language, with the detected language shown, and is
+    sent only when they press send.
+18. The agent reasons in English internally (an implementation detail the user
+    never sees) and its answers are returned in the session language.
+19. Every assistant message can be played aloud in the session language.
+20. Interface strings are localised for all six languages.
+21. Paper titles and abstracts stay in English, labelled as such — we translate
+    the agent's explanation of a source, never fabricate a translated title.
+22. Speech and translation spend is metered on the same ledger as science spend
+    and shown separately.
 
 **Non-functional**
 
@@ -259,13 +267,19 @@ serialised as strings.
 Exists. MongoDB scan is the work list; no queue. Resumes interrupted runs,
 harvests results, releases reservations.
 
-### 6.9 Voice layer (`voice/`) — new
-Wraps Spitch (`api.spitch.app/v1`). Three calls: `/transcriptions` (multipart,
-returns `detected_language`), `/speech` (returns wav bytes), `/diacritics` (restores
-Yorùbá tone marks on a transcript before display). Audio never touches the LLM —
-speech becomes text first, and text becomes speech last. **Failure:** the
-microphone and read-aloud buttons disable with a plain message; the product is
-fully usable by typing. See [docs/spitch-api-observed.md](docs/spitch-api-observed.md).
+### 6.9 Language layer (`language/`) — new
+**Not an accessory: this is how a Nigerian researcher uses the product.** Wraps
+Spitch (`api.spitch.app/v1`): `/transcriptions` (multipart, returns
+`detected_language`), `/translate`, `/diacritics` (Yorùbá tone marks),
+`/speech`. Sits at the **edges** of every turn — inbound, the user's language
+becomes English; outbound, English becomes the user's language. The agent and
+every tool run in English throughout, which the user never sees.
+
+Measured end to end 2026-11-17: a Yorùbá question reached the agent as correct
+English *even though STT mis-heard "Klebsiella" as "cleps ella"* — the
+translation step repaired it. Audio never touches the LLM. **Failure:** the
+language layer degrades to English with a plain notice; the product stays fully
+usable. See [docs/spitch-api-observed.md](docs/spitch-api-observed.md).
 
 ### 6.8 Residue numbering (`sources/residues.py`)
 Exists and is load-bearing. Reconciles UniProt position, PDB author numbering
@@ -540,7 +554,7 @@ Each ships green and pushed on its own.
 | **M8** | Spend gate: proposals, confirmation cards, re-estimate | Paid action impossible without confirmation; test proves it |
 | **M9** | Workbench UI: thread + artifact canvas + Mol\* + molecule table | Full flow by walkthrough, no JS errors |
 | **M10** | Landing page: the story, cited, with motion | motion-check 4/4; CLS ≤ 0.1 |
-| **M11a** | Voice: Spitch client, mic → composer draft with detected language, per-message read-aloud of the `spoken` field, metered | Six languages work by walkthrough; nothing auto-sends; speech spend visible |
+| **M11a** | Language layer: Spitch client, session language, inbound/outbound translation around every turn, mic → reviewable draft, per-message read-aloud, localised UI strings, metered | A full session completed in Yorùbá by walkthrough — ask, read, hear — without the user seeing English except in paper titles |
 | **M11** | Export bundle | CIF + SMILES + metrics + citations download |
 | **M12** | Evals in CI, ship-verify, deploy, live verification | All suites green; live smoke clean |
 
@@ -584,4 +598,5 @@ Each ships green and pushed on its own.
 | 10 | 2026-11-17 | Spitch for voice, six African languages | Built in Nigeria for these languages; verified working. "Any language" was never on offer and we do not claim it | Whisper + ElevenLabs |
 | 11 | 2026-11-17 | Transcripts are drafts, not commands | Speech models mis-hear scientific nouns; a wrong word must not silently spend money | Auto-send on transcription |
 | 12 | 2026-11-17 | Messages carry a separate `spoken` summary | Reading SMILES and accession codes aloud is noise | Read the message body with TTS |
+| 13 | 2026-11-17 | English as an internal pivot, invisible to the user | The model and the literature are both strongest in English; Spitch's translation is purpose-built for these languages. Measured: it even repaired a mis-heard scientific term | Have the LLM answer in Yorùbá directly (weaker), or make users work in English (defeats the purpose) |
 | 9 | 2026-11-17 | Keep v1 auth, budget ledger, reconciler, Mol\*, numbering | Tested, working, and the hardest parts to get right | Rebuild from scratch |
