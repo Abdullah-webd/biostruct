@@ -1,0 +1,46 @@
+{
+  "id": "adme_pred_tmsMq2jMcPhSzNyzZ1Ov",
+  "model": "adme-v1",
+  "version": "v2026-04-01",
+  "status": "succeeded",
+  "error": null,
+  "livemode": false,
+  "workspace_id": "ws_REDACTED",
+  "data_deleted_at": null,
+  "created_at": "2026-11-17T07:01:27.791Z",
+  "started_at": "2026-11-17T07:01:29.540Z",
+  "completed_at": "2026-11-17T07:01:29.589Z",
+  "expires_at": "2026-11-24T07:01:29.589Z",
+  "input": {
+    "molecules": [
+      {
+        "smiles": "NC(=O)[C@@H]1CC[C@@H]2CN1C(=O)N2OS(=O)(=O)O",
+        "id": "avibactam"
+      },
+      {
+        "smiles": "CC1(C)S[C@@H]2[C@H](NC(=O)Cc3ccccc3)C(=O)N2[C@H]1C(=O)O",
+        "id": "penicillin-g"
+      },
+      {
+        "smiles": "CCO",
+        "id": "ethanol-decoy"
+      }
+    ]
+  },
+  "output": {
+    "molecules": [
+      {
+        "id": "molecule_0",
+        "smiles": "CCO",
+        "status": "succeeded",
+        "adme": {
+          "solubility": "high-confidence",
+          "permeability": 0.7,
+          "lipophilicity": 0.42
+        },
+        "error": null
+      }
+    ]
+  },
+  "idempotency_key": "antidote-m2-1794898875-adme"
+}

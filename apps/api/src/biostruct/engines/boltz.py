@@ -55,6 +55,21 @@ from biostruct.engines.prediction import (
     ProteinBinding,
     StructureMetrics,
 )
+from biostruct.engines.screening import (
+    ADME_MODEL,
+    Adme,
+    AdmeJob,
+    AdmeResult,
+    AdmeSpec,
+    ScreenJob,
+    ScreenMetrics,
+    ScreenProgress,
+    ScreenResult,
+    ScreenSpec,
+    ScreenTarget,
+    ScreenWarning,
+    Solubility,
+)
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +78,11 @@ API_PREFIX = "/compute/v1"
 
 #: Step 2's endpoint family. Billed per sample, $0.0250 each as of 2026-11-17.
 PREDICTION_PATH = "/predictions/structure-and-binding"
+
+#: Step 3's endpoints. Billed per molecule: $0.0250 to screen, $0.0100 for
+#: ADME alone, so ADME is the cheap way to triage a library before screening.
+SCREEN_PATH = "/small-molecule/library-screen"
+ADME_PATH = "/predictions/adme"
 
 # Submission should fail fast; result pages carry more data and get longer.
 TIMEOUT_SUBMIT = httpx.Timeout(30.0, connect=10.0)
@@ -554,6 +574,269 @@ class BoltzHostedEngine:
 
     async def delete_prediction_data(self, job_id: str) -> None:
         await self._request("POST", f"{PREDICTION_PATH}/{job_id}/delete-data")
+
+    # --- ScreeningEngine ---------------------------------------------------
+    #
+    # Step 3: which molecules stick to the target. Billed per molecule —
+    # $0.0250 to screen, $0.0100 for ADME alone (2026-11-17).
+
+    @staticmethod
+    def _screen_target_payload(target: ScreenTarget) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "entities": [
+                {"type": "protein", "chain_ids": [chain_id], "value": sequence}
+                for chain_id, sequence in target.entities
+            ]
+        }
+        if target.pocket_residues:
+            payload["pocket_residues"] = {
+                chain_id: sorted(set(residues))
+                for chain_id, residues in target.pocket_residues.items()
+            }
+        if target.reference_ligands:
+            payload["reference_ligands"] = list(target.reference_ligands)
+        return payload
+
+    @classmethod
+    def _screen_payload(cls, spec: ScreenSpec) -> dict[str, Any]:
+        """Build the screen body.
+
+        **Flat, and with no ``model`` field** — unlike the prediction endpoint,
+        which wraps in ``input`` and requires ``model``. Sending ``model`` here
+        makes the union validator demand ``target_profile``, a field that does
+        not exist; that error cost hours once and must not cost them twice.
+        """
+        molecules: list[dict[str, Any]] = []
+        for molecule in spec.molecules:
+            entry: dict[str, Any] = {"smiles": molecule.smiles}
+            if molecule.external_id:
+                entry["id"] = molecule.external_id
+            molecules.append(entry)
+        return {
+            "target": cls._screen_target_payload(spec.target),
+            "molecules": molecules,
+            "molecule_filters": {"boltz_smarts_catalog_filter_level": spec.filter_level},
+        }
+
+    @staticmethod
+    def _parse_adme(raw: Any) -> Adme:
+        if not isinstance(raw, dict):
+            return Adme()
+        solubility = raw.get("solubility")
+        return Adme(
+            lipophilicity=_opt_float(raw.get("lipophilicity")),
+            permeability=_opt_float(raw.get("permeability")),
+            solubility=(cast(Solubility, solubility) if isinstance(solubility, str) else None),
+        )
+
+    @classmethod
+    def parse_screen_job(cls, payload: dict[str, Any]) -> ScreenJob:
+        raw_status = str(payload.get("status", "")).lower()
+        try:
+            status = JobStatus(raw_status)
+        except ValueError:
+            log.warning("Boltz returned unknown screen status %r", raw_status)
+            status = JobStatus.running
+
+        progress = payload.get("progress") or {}
+        error = payload.get("error")
+        return ScreenJob(
+            job_id=str(payload.get("id", "")),
+            status=status,
+            livemode=bool(payload.get("livemode", False)),
+            progress=ScreenProgress(
+                total=int(progress.get("total_molecules_to_screen") or 0),
+                screened=int(progress.get("num_molecules_screened") or 0),
+                failed=int(progress.get("num_molecules_failed") or 0),
+                latest_result_id=str(progress.get("latest_result_id") or ""),
+            ),
+            # ``engine``/``engine_version`` carry the same values but are
+            # deprecated, so read the pipeline fields and ignore them.
+            pipeline=str(payload.get("pipeline", "")),
+            pipeline_version=str(payload.get("pipeline_version", "")),
+            error=str(error.get("message", "")) if isinstance(error, dict) else "",
+            created_at=_parse_dt(payload.get("created_at")),
+            started_at=_parse_dt(payload.get("started_at")),
+            completed_at=_parse_dt(payload.get("completed_at")),
+        )
+
+    @classmethod
+    def parse_screen_result(cls, payload: dict[str, Any]) -> ScreenResult:
+        metrics = payload.get("metrics") or {}
+        artifacts = payload.get("artifacts") or {}
+        return ScreenResult(
+            result_id=str(payload.get("id", "")),
+            smiles=str(payload.get("smiles", "")),
+            external_id=str(payload.get("external_id") or ""),
+            metrics=ScreenMetrics(
+                binding_confidence=_opt_float(metrics.get("binding_confidence")),
+                optimization_score=_opt_float(metrics.get("optimization_score")),
+                structure_confidence=_opt_float(metrics.get("structure_confidence")),
+                iptm=_opt_float(metrics.get("iptm")),
+                ptm=_opt_float(metrics.get("ptm")),
+                complex_plddt=_opt_float(metrics.get("complex_plddt")),
+                complex_iplddt=_opt_float(metrics.get("complex_iplddt")),
+            ),
+            adme=cls._parse_adme(payload.get("adme")),
+            structure=cls._parse_artifact(artifacts.get("structure")),
+            ligand_structure=cls._parse_artifact(artifacts.get("ligand_structure")),
+            archive=cls._parse_artifact(artifacts.get("archive")),
+            warnings=tuple(
+                ScreenWarning(code=str(w.get("code", "")), message=str(w.get("message", "")))
+                for w in payload.get("warnings") or []
+                if isinstance(w, dict)
+            ),
+            created_at=_parse_dt(payload.get("created_at")),
+        )
+
+    async def estimate_screen_cost(self, spec: ScreenSpec) -> CostEstimate:
+        payload = await self._request(
+            "POST", f"{SCREEN_PATH}/estimate-cost", json=self._screen_payload(spec)
+        )
+        breakdown = payload.get("breakdown") or {}
+        return CostEstimate(
+            total_usd=_money(payload.get("estimated_cost_usd", "0")),
+            unit_usd=_money(breakdown.get("cost_per_unit_usd", "0")),
+            units=int(breakdown.get("num_units") or len(spec.molecules)),
+            application=str(breakdown.get("application", "small_molecule_library_screen")),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )
+
+    async def start_screen(self, spec: ScreenSpec, *, idempotency_key: str) -> ScreenJob:
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required when starting a screen")
+        body = self._screen_payload(spec)
+        body["idempotency_key"] = idempotency_key
+        payload = await self._request("POST", SCREEN_PATH, json=body, http_timeout=TIMEOUT_SUBMIT)
+        return self.parse_screen_job(payload)
+
+    async def get_screen(self, job_id: str) -> ScreenJob:
+        return self.parse_screen_job(await self._request("GET", f"{SCREEN_PATH}/{job_id}"))
+
+    async def stop_screen(self, job_id: str) -> ScreenJob:
+        return self.parse_screen_job(await self._request("POST", f"{SCREEN_PATH}/{job_id}/stop"))
+
+    async def resume_screen(self, job_id: str) -> ScreenJob:
+        return self.parse_screen_job(await self._request("POST", f"{SCREEN_PATH}/{job_id}/resume"))
+
+    async def delete_screen_data(self, job_id: str) -> None:
+        await self._request("POST", f"{SCREEN_PATH}/{job_id}/delete-data")
+
+    async def iter_screen_results(
+        self, job_id: str, *, after_id: str | None = None, page_size: int = 100
+    ) -> AsyncIterator[ScreenResult]:
+        """Page through screened molecules as they are scored.
+
+        Results stream in during a run rather than arriving at the end, so this
+        is safe to call on a job that is still going — and that is the point,
+        since a researcher watching a long screen should see hits appear.
+        """
+        cursor = after_id
+        seen: set[str] = set()
+        while True:
+            params: dict[str, Any] = {"limit": page_size}
+            if cursor:
+                params["after_id"] = cursor
+            page = await self._request("GET", f"{SCREEN_PATH}/{job_id}/results", params=params)
+            rows = page.get("data") or []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                result = self.parse_screen_result(row)
+                if result.result_id in seen:
+                    log.warning(
+                        "Boltz returned duplicate screen result %s for %s; skipping",
+                        result.result_id,
+                        job_id,
+                    )
+                    continue
+                seen.add(result.result_id)
+                yield result
+            if not page.get("has_more") or not rows:
+                return
+            last_id = page.get("last_id")
+            if not last_id or last_id == cursor:
+                log.warning("Boltz screen cursor did not advance for %s", job_id)
+                return
+            cursor = str(last_id)
+
+    # --- ADME --------------------------------------------------------------
+
+    @staticmethod
+    def _adme_payload(spec: AdmeSpec) -> dict[str, Any]:
+        molecules: list[dict[str, Any]] = []
+        for molecule in spec.molecules:
+            entry: dict[str, Any] = {"smiles": molecule.smiles}
+            if molecule.external_id:
+                entry["id"] = molecule.external_id
+            molecules.append(entry)
+        return {"input": {"molecules": molecules}, "model": ADME_MODEL}
+
+    @classmethod
+    def parse_adme_job(cls, payload: dict[str, Any]) -> AdmeJob:
+        raw_status = str(payload.get("status", "")).lower()
+        try:
+            status = JobStatus(raw_status)
+        except ValueError:
+            log.warning("Boltz returned unknown ADME status %r", raw_status)
+            status = JobStatus.running
+
+        error = payload.get("error")
+        rows = (payload.get("output") or {}).get("molecules") or []
+        results: list[AdmeResult] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            row_error = row.get("error")
+            results.append(
+                AdmeResult(
+                    molecule_id=str(row.get("id", "")),
+                    smiles=str(row.get("smiles", "")),
+                    external_id=str(row.get("external_id") or ""),
+                    succeeded=str(row.get("status", "")).lower() == "succeeded",
+                    error=(
+                        str(row_error.get("message", "")) if isinstance(row_error, dict) else ""
+                    ),
+                    adme=cls._parse_adme(row.get("adme")),
+                )
+            )
+
+        return AdmeJob(
+            job_id=str(payload.get("id", "")),
+            status=status,
+            livemode=bool(payload.get("livemode", False)),
+            model=str(payload.get("model", "")),
+            version=str(payload.get("version", "")),
+            error=str(error.get("message", "")) if isinstance(error, dict) else "",
+            created_at=_parse_dt(payload.get("created_at")),
+            completed_at=_parse_dt(payload.get("completed_at")),
+            expires_at=_parse_dt(payload.get("expires_at")),
+            results=tuple(results),
+        )
+
+    async def estimate_adme_cost(self, spec: AdmeSpec) -> CostEstimate:
+        payload = await self._request(
+            "POST", f"{ADME_PATH}/estimate-cost", json=self._adme_payload(spec)
+        )
+        breakdown = payload.get("breakdown") or {}
+        return CostEstimate(
+            total_usd=_money(payload.get("estimated_cost_usd", "0")),
+            unit_usd=_money(breakdown.get("cost_per_unit_usd", "0")),
+            units=int(breakdown.get("num_units") or len(spec.molecules)),
+            application=str(breakdown.get("application", "adme")),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )
+
+    async def start_adme(self, spec: AdmeSpec, *, idempotency_key: str) -> AdmeJob:
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required when starting an ADME run")
+        body = self._adme_payload(spec)
+        body["idempotency_key"] = idempotency_key
+        payload = await self._request("POST", ADME_PATH, json=body, http_timeout=TIMEOUT_SUBMIT)
+        return self.parse_adme_job(payload)
+
+    async def get_adme(self, job_id: str) -> AdmeJob:
+        return self.parse_adme_job(await self._request("GET", f"{ADME_PATH}/{job_id}"))
 
     # --- misc --------------------------------------------------------------
 

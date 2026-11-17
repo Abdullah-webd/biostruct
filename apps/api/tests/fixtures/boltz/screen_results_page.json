@@ -1,0 +1,67 @@
+{
+  "data": [
+    {
+      "id": "test_res_sm_scr_9PEnWN9i4YKRwG43CAWx_000000",
+      "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+      "metrics": {
+        "iptm": 0.5412,
+        "binding_confidence": 0.5829,
+        "structure_confidence": 0.7739,
+        "optimization_score": 0.2269,
+        "ptm": 0.722,
+        "complex_plddt": 0.7036,
+        "complex_iplddt": 0.4163
+      },
+      "artifacts": {
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?REDACTED",
+          "url_expires_at": "2026-11-17T07:31:27.272Z"
+        },
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?REDACTED",
+          "url_expires_at": "2026-11-17T07:31:27.272Z"
+        }
+      },
+      "created_at": "2026-11-17T07:01:27.273Z",
+      "external_id": "mol_0",
+      "adme": {
+        "solubility": "medium-confidence",
+        "permeability": -0.7392,
+        "lipophilicity": 1.3034
+      }
+    },
+    {
+      "id": "test_res_sm_scr_9PEnWN9i4YKRwG43CAWx_000001",
+      "smiles": "c1cc(ccc1N)S(=O)(=O)N",
+      "metrics": {
+        "iptm": 0.5418,
+        "binding_confidence": 0.488,
+        "structure_confidence": 0.5857,
+        "optimization_score": 0.4277,
+        "ptm": 0.7369,
+        "complex_plddt": 0.8039,
+        "complex_iplddt": 0.8216
+      },
+      "artifacts": {
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?REDACTED",
+          "url_expires_at": "2026-11-17T07:31:27.272Z"
+        },
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?REDACTED",
+          "url_expires_at": "2026-11-17T07:31:27.272Z"
+        }
+      },
+      "created_at": "2026-11-17T07:01:27.273Z",
+      "external_id": "mol_1",
+      "adme": {
+        "solubility": "high-confidence",
+        "permeability": -5.8261,
+        "lipophilicity": 1.3875
+      }
+    }
+  ],
+  "has_more": true,
+  "first_id": "test_res_sm_scr_9PEnWN9i4YKRwG43CAWx_000000",
+  "last_id": "test_res_sm_scr_9PEnWN9i4YKRwG43CAWx_000001"
+}

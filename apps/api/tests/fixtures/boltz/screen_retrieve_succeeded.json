@@ -1,0 +1,52 @@
+{
+  "id": "sm_scr_9PEnWN9i4YKRwG43CAWx",
+  "pipeline": "boltzmol",
+  "pipeline_version": "1.0",
+  "engine": "boltzmol",
+  "engine_version": "1.0",
+  "status": "succeeded",
+  "progress": {
+    "total_molecules_to_screen": 3,
+    "num_molecules_screened": 3,
+    "num_molecules_failed": 0,
+    "latest_result_id": "test_res_sm_scr_9PEnWN9i4YKRwG43CAWx_000002"
+  },
+  "error": null,
+  "livemode": false,
+  "workspace_id": "ws_REDACTED",
+  "created_at": "2026-11-17T07:01:16.476Z",
+  "started_at": "2026-11-17T07:01:16.565Z",
+  "completed_at": "2026-11-17T07:01:26.782Z",
+  "stopped_at": null,
+  "data_deleted_at": null,
+  "input": {
+    "target": {
+      "entities": [
+        {
+          "type": "protein",
+          "chain_ids": [
+            "A"
+          ],
+          "value": "MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLL",
+          "modifications": []
+        }
+      ],
+      "type": "no_template",
+      "reference_ligands": [
+        "C1=CN(C=N1)C=2C=CC(=CC2)CNCC3=CN4CCCCCC4=N3",
+        "CN(C)C(=O)COC=1C=CC=C(C1)CNC=2N=CC(=CC2Cl)C(=O)N3CCCCC3",
+        "COC=1C=CC=2CCCCN(C(=O)C=3C=CC=NC3)C2C1",
+        "O=C(NCC1=NC=2CCOCC2S1)C3CCC=4C=CC=CC4C3",
+        "CC=1N=CC=C(N1)N2CCN(CC3=NOC(=N3)C4CCCCC4)CC2"
+      ]
+    },
+    "molecules": {
+      "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/org/6ed9c9f3-90fc-41b0-a104-d9c923834c2c/workspace/ws_oopHPZRx3LNUV5vLAU3J/pipeline/sm_scr_9PEnWN9i4YKRwG43CAWx/input/molecules.json?REDACTED",
+      "url_expires_at": "2026-11-17T07:31:26.942Z"
+    },
+    "molecule_filters": {
+      "boltz_smarts_catalog_filter_level": "recommended"
+    }
+  },
+  "idempotency_key": "antidote-m2-1794898875"
+}
