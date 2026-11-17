@@ -37,6 +37,7 @@ import {
   type Run,
   agentApi,
   createCitationFilter,
+  notifySessionsChanged,
   sendMessage,
   stripMarkers,
   transcribe,
@@ -106,6 +107,8 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
     setMessages(m);
     setArtifacts(a);
     setRuns(r);
+    // The session may have just named itself from the first question.
+    notifySessionsChanged();
   }, [sessionId]);
 
   useEffect(() => {

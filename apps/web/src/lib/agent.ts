@@ -357,3 +357,20 @@ export async function transcribe(
   }
   return parsed as Transcript;
 }
+
+
+/**
+ * Tells the session rail that a thread changed.
+ *
+ * The rail lives in the app shell and the thread lives in the page, so there
+ * is no shared parent to lift state into. A session names itself from its
+ * first question, and without this the rail keeps showing "Untitled session"
+ * until the next navigation — which looks like the title was never saved.
+ */
+export const SESSIONS_CHANGED = "antidote:sessions-changed";
+
+export function notifySessionsChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSIONS_CHANGED));
+  }
+}

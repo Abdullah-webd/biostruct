@@ -22,7 +22,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { ApiError, endpoints, type User } from "@/lib/api";
-import { type SessionSummary, agentApi } from "@/lib/agent";
+import { SESSIONS_CHANGED, type SessionSummary, agentApi } from "@/lib/agent";
 import { Button, Spinner } from "@/components/ui";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
 
@@ -75,6 +75,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       await refresh();
     };
     void load();
+    // A thread that has just named itself, or a run that finished, should be
+    // reflected here without waiting for a navigation.
+    window.addEventListener(SESSIONS_CHANGED, load);
+    return () => window.removeEventListener(SESSIONS_CHANGED, load);
   }, [state, pathname, refresh]);
 
   const startSession = useCallback(async () => {
