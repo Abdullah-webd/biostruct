@@ -1,0 +1,56 @@
+{
+  "id": "sm_des_v2_SWJsCCMlgV4N3tR2pdb2",
+  "pipeline": "boltzmol",
+  "pipeline_version": "1.0",
+  "engine": "boltzmol",
+  "engine_version": "1.0",
+  "status": "succeeded",
+  "progress": {
+    "total_molecules_to_generate": 10,
+    "num_molecules_generated": 10,
+    "latest_result_id": "test_res_sm_des_v2_SWJsCCMlgV4N3tR2pdb2_000009"
+  },
+  "error": null,
+  "livemode": false,
+  "workspace_id": "ws_REDACTED",
+  "created_at": "2026-11-17T07:10:22.043Z",
+  "started_at": "2026-11-17T07:10:22.130Z",
+  "completed_at": "2026-11-17T07:10:32.413Z",
+  "stopped_at": null,
+  "data_deleted_at": null,
+  "input": {
+    "num_molecules": 10,
+    "target": {
+      "entities": [
+        {
+          "type": "protein",
+          "chain_ids": [
+            "A"
+          ],
+          "value": "MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLL",
+          "modifications": []
+        }
+      ],
+      "type": "no_template",
+      "pocket_residues": {
+        "A": [
+          68,
+          69,
+          70,
+          129,
+          130
+        ]
+      },
+      "reference_ligands": [
+        "C1=CN(C=N1)C=2C=CC(=CC2)CNCC3=CN4CCCCCC4=N3",
+        "CN(C)C(=O)COC=1C=CC=C(C1)CNC=2N=CC(=CC2Cl)C(=O)N3CCCCC3",
+        "COC=1C=CC=2CCCCN(C(=O)C=3C=CC=NC3)C2C1",
+        "O=C(NCC1=NC=2CCOCC2S1)C3CCC=4C=CC=CC4C3",
+        "CC=1N=CC=C(N1)N2CCN(CC3=NOC(=N3)C4CCCCC4)CC2"
+      ]
+    },
+    "chemical_space": "enamine_real",
+    "idempotency_key": "antidote-m3-1794899421"
+  },
+  "idempotency_key": "antidote-m3-1794899421"
+}

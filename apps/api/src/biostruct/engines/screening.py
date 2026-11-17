@@ -49,7 +49,7 @@ class Molecule:
     ``external_id`` is how a result is joined back to the caller's library.
     **It only survives in live mode** — test mode discards both the id and the
     SMILES and substitutes its own (observed: we sent avibactam, we got aspirin
-    back). ``ScreenJob.livemode`` says which world you are in, and nothing in
+    back). ``MoleculeJob.livemode`` says which world you are in, and nothing in
     the product may join test-mode results to a real library.
     """
 
@@ -157,7 +157,7 @@ class Adme:
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenMetrics:
+class MoleculeMetrics:
     """How well one molecule did.
 
     ``binding_confidence`` is the headline: the API documents it as the primary
@@ -182,33 +182,42 @@ class ScreenMetrics:
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenWarning:
+class MoleculeWarning:
     code: str
     message: str
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenResult:
+class MoleculeResult:
     """One screened molecule."""
 
     result_id: str
     smiles: str = ""
     external_id: str = ""
-    metrics: ScreenMetrics = field(default_factory=ScreenMetrics)
+    metrics: MoleculeMetrics = field(default_factory=MoleculeMetrics)
     adme: Adme = field(default_factory=Adme)
     structure: Artifact | None = None
     ligand_structure: Artifact | None = None
     archive: Artifact | None = None
-    warnings: tuple[ScreenWarning, ...] = ()
+    warnings: tuple[MoleculeWarning, ...] = ()
     created_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenProgress:
-    """How far a screen has got, and how much of the library it dropped."""
+class MoleculeProgress:
+    """How far a run has got.
+
+    One type for both endpoints, because the engine reports the same thing
+    under two names: a screen counts molecules *screened* against a library,
+    a design run counts molecules *generated* from nothing.
+
+    ``failed`` only ever moves on a screen, where molecules rejected by the
+    structural-alert filters are skipped silently and never appear in results.
+    It is the only trace of a library quietly shrinking.
+    """
 
     total: int = 0
-    screened: int = 0
+    done: int = 0
     failed: int = 0
     latest_result_id: str = ""
 
@@ -216,15 +225,15 @@ class ScreenProgress:
     def percent_complete(self) -> int | None:
         if self.total <= 0:
             return None
-        return min(100, round(100 * (self.screened + self.failed) / self.total))
+        return min(100, round(100 * (self.done + self.failed) / self.total))
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenJob:
+class MoleculeJob:
     job_id: str
     status: JobStatus
     livemode: bool
-    progress: ScreenProgress = field(default_factory=ScreenProgress)
+    progress: MoleculeProgress = field(default_factory=MoleculeProgress)
     pipeline: str = ""
     pipeline_version: str = ""
     error: str = ""
@@ -267,6 +276,39 @@ class AdmeJob:
         return self.status.is_terminal
 
 
+#: The engine accepts 10 to 1,000,000 molecules per design run. At $0.0250
+#: each the upper bound is a **$25,000** request, so the domain caps it far
+#: lower. The budget ledger is the real guard; this is defence in depth, and
+#: it fails with a sentence a caller can act on instead of a surprise bill.
+DESIGN_MOLECULES_MIN = 10
+DESIGN_MOLECULES_MAX = 2000
+ENGINE_DESIGN_MOLECULES_MAX = 1_000_000
+
+
+@dataclass(frozen=True, slots=True)
+class MoleculeDesignSpec:
+    """Invent molecules for a pocket, rather than screening existing ones.
+
+    The counterpart to :class:`ScreenSpec`. A screen asks "does anything we
+    already know about fit?"; a design run asks "what *would* fit?" and makes
+    it up. Results come back in the same shape, so everything downstream —
+    ranking, structures, drug-likeness, export — is shared.
+    """
+
+    target: ScreenTarget
+    num_molecules: int = DESIGN_MOLECULES_MIN
+
+    def __post_init__(self) -> None:
+        if self.num_molecules < DESIGN_MOLECULES_MIN:
+            raise ValueError(f"a design run needs at least {DESIGN_MOLECULES_MIN} molecules")
+        if self.num_molecules > DESIGN_MOLECULES_MAX:
+            raise ValueError(
+                f"we cap design runs at {DESIGN_MOLECULES_MAX} molecules "
+                f"(about ${DESIGN_MOLECULES_MAX * 0.025:.0f}). The engine would "
+                f"accept {ENGINE_DESIGN_MOLECULES_MAX:,}, which is a $25,000 request."
+            )
+
+
 @runtime_checkable
 class ScreeningEngine(Protocol):
     """What the app needs to turn a target into a ranked shortlist.
@@ -280,11 +322,19 @@ class ScreeningEngine(Protocol):
 
     async def estimate_screen_cost(self, spec: ScreenSpec) -> CostEstimate: ...
 
-    async def start_screen(self, spec: ScreenSpec, *, idempotency_key: str) -> ScreenJob: ...
+    async def start_screen(self, spec: ScreenSpec, *, idempotency_key: str) -> MoleculeJob: ...
 
-    async def get_screen(self, job_id: str) -> ScreenJob: ...
+    async def get_screen(self, job_id: str) -> MoleculeJob: ...
 
-    async def stop_screen(self, job_id: str) -> ScreenJob: ...
+    async def stop_screen(self, job_id: str) -> MoleculeJob: ...
+
+    async def estimate_design_cost(self, spec: MoleculeDesignSpec) -> CostEstimate: ...
+
+    async def start_molecule_design(
+        self, spec: MoleculeDesignSpec, *, idempotency_key: str
+    ) -> MoleculeJob: ...
+
+    async def get_molecule_design(self, job_id: str) -> MoleculeJob: ...
 
     async def estimate_adme_cost(self, spec: AdmeSpec) -> CostEstimate: ...
 

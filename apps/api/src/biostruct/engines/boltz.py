@@ -61,13 +61,14 @@ from biostruct.engines.screening import (
     AdmeJob,
     AdmeResult,
     AdmeSpec,
-    ScreenJob,
-    ScreenMetrics,
-    ScreenProgress,
-    ScreenResult,
+    MoleculeDesignSpec,
+    MoleculeJob,
+    MoleculeMetrics,
+    MoleculeProgress,
+    MoleculeResult,
+    MoleculeWarning,
     ScreenSpec,
     ScreenTarget,
-    ScreenWarning,
     Solubility,
 )
 
@@ -82,6 +83,7 @@ PREDICTION_PATH = "/predictions/structure-and-binding"
 #: Step 3's endpoints. Billed per molecule: $0.0250 to screen, $0.0100 for
 #: ADME alone, so ADME is the cheap way to triage a library before screening.
 SCREEN_PATH = "/small-molecule/library-screen"
+MOLECULE_DESIGN_PATH = "/small-molecule/design"
 ADME_PATH = "/predictions/adme"
 
 # Submission should fail fast; result pages carry more data and get longer.
@@ -630,7 +632,7 @@ class BoltzHostedEngine:
         )
 
     @classmethod
-    def parse_screen_job(cls, payload: dict[str, Any]) -> ScreenJob:
+    def parse_molecule_job(cls, payload: dict[str, Any]) -> MoleculeJob:
         raw_status = str(payload.get("status", "")).lower()
         try:
             status = JobStatus(raw_status)
@@ -640,13 +642,23 @@ class BoltzHostedEngine:
 
         progress = payload.get("progress") or {}
         error = payload.get("error")
-        return ScreenJob(
+        return MoleculeJob(
             job_id=str(payload.get("id", "")),
             status=status,
             livemode=bool(payload.get("livemode", False)),
-            progress=ScreenProgress(
-                total=int(progress.get("total_molecules_to_screen") or 0),
-                screened=int(progress.get("num_molecules_screened") or 0),
+            # A screen counts "screened", a design run counts "generated".
+            # Same meaning, two names, one type.
+            progress=MoleculeProgress(
+                total=int(
+                    progress.get("total_molecules_to_screen")
+                    or progress.get("total_molecules_to_generate")
+                    or 0
+                ),
+                done=int(
+                    progress.get("num_molecules_screened")
+                    or progress.get("num_molecules_generated")
+                    or 0
+                ),
                 failed=int(progress.get("num_molecules_failed") or 0),
                 latest_result_id=str(progress.get("latest_result_id") or ""),
             ),
@@ -661,14 +673,14 @@ class BoltzHostedEngine:
         )
 
     @classmethod
-    def parse_screen_result(cls, payload: dict[str, Any]) -> ScreenResult:
+    def parse_molecule_result(cls, payload: dict[str, Any]) -> MoleculeResult:
         metrics = payload.get("metrics") or {}
         artifacts = payload.get("artifacts") or {}
-        return ScreenResult(
+        return MoleculeResult(
             result_id=str(payload.get("id", "")),
             smiles=str(payload.get("smiles", "")),
             external_id=str(payload.get("external_id") or ""),
-            metrics=ScreenMetrics(
+            metrics=MoleculeMetrics(
                 binding_confidence=_opt_float(metrics.get("binding_confidence")),
                 optimization_score=_opt_float(metrics.get("optimization_score")),
                 structure_confidence=_opt_float(metrics.get("structure_confidence")),
@@ -682,7 +694,7 @@ class BoltzHostedEngine:
             ligand_structure=cls._parse_artifact(artifacts.get("ligand_structure")),
             archive=cls._parse_artifact(artifacts.get("archive")),
             warnings=tuple(
-                ScreenWarning(code=str(w.get("code", "")), message=str(w.get("message", "")))
+                MoleculeWarning(code=str(w.get("code", "")), message=str(w.get("message", "")))
                 for w in payload.get("warnings") or []
                 if isinstance(w, dict)
             ),
@@ -702,34 +714,62 @@ class BoltzHostedEngine:
             disclaimer=str(payload.get("disclaimer", "")),
         )
 
-    async def start_screen(self, spec: ScreenSpec, *, idempotency_key: str) -> ScreenJob:
+    async def start_screen(self, spec: ScreenSpec, *, idempotency_key: str) -> MoleculeJob:
         if not idempotency_key:
             raise ValueError("idempotency_key is required when starting a screen")
         body = self._screen_payload(spec)
         body["idempotency_key"] = idempotency_key
         payload = await self._request("POST", SCREEN_PATH, json=body, http_timeout=TIMEOUT_SUBMIT)
-        return self.parse_screen_job(payload)
+        return self.parse_molecule_job(payload)
 
-    async def get_screen(self, job_id: str) -> ScreenJob:
-        return self.parse_screen_job(await self._request("GET", f"{SCREEN_PATH}/{job_id}"))
+    async def get_screen(self, job_id: str) -> MoleculeJob:
+        return self.parse_molecule_job(await self._request("GET", f"{SCREEN_PATH}/{job_id}"))
 
-    async def stop_screen(self, job_id: str) -> ScreenJob:
-        return self.parse_screen_job(await self._request("POST", f"{SCREEN_PATH}/{job_id}/stop"))
+    async def stop_screen(self, job_id: str) -> MoleculeJob:
+        return self.parse_molecule_job(await self._request("POST", f"{SCREEN_PATH}/{job_id}/stop"))
 
-    async def resume_screen(self, job_id: str) -> ScreenJob:
-        return self.parse_screen_job(await self._request("POST", f"{SCREEN_PATH}/{job_id}/resume"))
+    async def resume_screen(self, job_id: str) -> MoleculeJob:
+        return self.parse_molecule_job(
+            await self._request("POST", f"{SCREEN_PATH}/{job_id}/resume")
+        )
 
     async def delete_screen_data(self, job_id: str) -> None:
         await self._request("POST", f"{SCREEN_PATH}/{job_id}/delete-data")
 
     async def iter_screen_results(
         self, job_id: str, *, after_id: str | None = None, page_size: int = 100
-    ) -> AsyncIterator[ScreenResult]:
-        """Page through screened molecules as they are scored.
+    ) -> AsyncIterator[MoleculeResult]:
+        """Page through screened molecules as they are scored."""
+        async for result in self._iter_molecules(
+            SCREEN_PATH, job_id, after_id=after_id, page_size=page_size
+        ):
+            yield result
+
+    async def iter_design_results(
+        self, job_id: str, *, after_id: str | None = None, page_size: int = 100
+    ) -> AsyncIterator[MoleculeResult]:
+        """Page through invented molecules as they are generated."""
+        async for result in self._iter_molecules(
+            MOLECULE_DESIGN_PATH, job_id, after_id=after_id, page_size=page_size
+        ):
+            yield result
+
+    async def _iter_molecules(
+        self,
+        path: str,
+        job_id: str,
+        *,
+        after_id: str | None = None,
+        page_size: int = 100,
+    ) -> AsyncIterator[MoleculeResult]:
+        """Page a molecule run's results with the API's cursor.
 
         Results stream in during a run rather than arriving at the end, so this
         is safe to call on a job that is still going — and that is the point,
-        since a researcher watching a long screen should see hits appear.
+        since a researcher watching a long run should see hits appear.
+
+        Screening and design return the identical result shape, so they share
+        this entirely.
         """
         cursor = after_id
         seen: set[str] = set()
@@ -737,15 +777,15 @@ class BoltzHostedEngine:
             params: dict[str, Any] = {"limit": page_size}
             if cursor:
                 params["after_id"] = cursor
-            page = await self._request("GET", f"{SCREEN_PATH}/{job_id}/results", params=params)
+            page = await self._request("GET", f"{path}/{job_id}/results", params=params)
             rows = page.get("data") or []
             for row in rows:
                 if not isinstance(row, dict):
                     continue
-                result = self.parse_screen_result(row)
+                result = self.parse_molecule_result(row)
                 if result.result_id in seen:
                     log.warning(
-                        "Boltz returned duplicate screen result %s for %s; skipping",
+                        "Boltz returned duplicate molecule result %s for %s; skipping",
                         result.result_id,
                         job_id,
                     )
@@ -756,9 +796,59 @@ class BoltzHostedEngine:
                 return
             last_id = page.get("last_id")
             if not last_id or last_id == cursor:
-                log.warning("Boltz screen cursor did not advance for %s", job_id)
+                log.warning("Boltz molecule cursor did not advance for %s", job_id)
                 return
             cursor = str(last_id)
+
+    # --- de novo molecule design -------------------------------------------
+
+    @classmethod
+    def _molecule_design_payload(cls, spec: MoleculeDesignSpec) -> dict[str, Any]:
+        """Flat, like the screen — and the target schema is shared with it."""
+        return {
+            "target": cls._screen_target_payload(spec.target),
+            "num_molecules": spec.num_molecules,
+        }
+
+    async def estimate_design_cost(self, spec: MoleculeDesignSpec) -> CostEstimate:
+        payload = await self._request(
+            "POST",
+            f"{MOLECULE_DESIGN_PATH}/estimate-cost",
+            json=self._molecule_design_payload(spec),
+        )
+        breakdown = payload.get("breakdown") or {}
+        return CostEstimate(
+            total_usd=_money(payload.get("estimated_cost_usd", "0")),
+            unit_usd=_money(breakdown.get("cost_per_unit_usd", "0")),
+            units=int(breakdown.get("num_units") or spec.num_molecules),
+            application=str(breakdown.get("application", "small_molecule_design")),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )
+
+    async def start_molecule_design(
+        self, spec: MoleculeDesignSpec, *, idempotency_key: str
+    ) -> MoleculeJob:
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required when starting a molecule design run")
+        body = self._molecule_design_payload(spec)
+        body["idempotency_key"] = idempotency_key
+        payload = await self._request(
+            "POST", MOLECULE_DESIGN_PATH, json=body, http_timeout=TIMEOUT_SUBMIT
+        )
+        return self.parse_molecule_job(payload)
+
+    async def get_molecule_design(self, job_id: str) -> MoleculeJob:
+        return self.parse_molecule_job(
+            await self._request("GET", f"{MOLECULE_DESIGN_PATH}/{job_id}")
+        )
+
+    async def stop_molecule_design(self, job_id: str) -> MoleculeJob:
+        return self.parse_molecule_job(
+            await self._request("POST", f"{MOLECULE_DESIGN_PATH}/{job_id}/stop")
+        )
+
+    async def delete_molecule_design_data(self, job_id: str) -> None:
+        await self._request("POST", f"{MOLECULE_DESIGN_PATH}/{job_id}/delete-data")
 
     # --- ADME --------------------------------------------------------------
 

@@ -121,7 +121,7 @@ class TestPayload:
 
 class TestScreenJobParsing:
     def test_a_real_captured_job_parses(self) -> None:
-        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
+        job = BoltzHostedEngine.parse_molecule_job(fixture("screen_retrieve_succeeded.json"))
         assert job.status is JobStatus.succeeded
         assert job.is_terminal
         assert job.job_id.startswith("sm_scr_")
@@ -131,14 +131,14 @@ class TestScreenJobParsing:
 
     def test_progress_counts_what_the_library_lost(self) -> None:
         """Filtered molecules vanish from results; this count is the only trace."""
-        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
+        job = BoltzHostedEngine.parse_molecule_job(fixture("screen_retrieve_succeeded.json"))
         assert job.progress.total == 3
-        assert job.progress.screened == 3
+        assert job.progress.done == 3
         assert job.progress.failed == 0
         assert job.progress.percent_complete == 100
 
     def test_a_partly_filtered_run_reports_the_drop(self) -> None:
-        job = BoltzHostedEngine.parse_screen_job(
+        job = BoltzHostedEngine.parse_molecule_job(
             {
                 "id": "sm_scr_x",
                 "status": "succeeded",
@@ -153,7 +153,7 @@ class TestScreenJobParsing:
         assert job.progress.percent_complete == 100
 
     def test_an_unknown_status_is_not_treated_as_terminal(self) -> None:
-        job = BoltzHostedEngine.parse_screen_job({"id": "sm_scr_x", "status": "reticulating"})
+        job = BoltzHostedEngine.parse_molecule_job({"id": "sm_scr_x", "status": "reticulating"})
         assert job.status is JobStatus.running
         assert not job.is_terminal
 
@@ -161,7 +161,7 @@ class TestScreenJobParsing:
 class TestScreenResultParsing:
     def test_a_real_results_page_parses(self) -> None:
         page = fixture("screen_results_page.json")
-        results = [BoltzHostedEngine.parse_screen_result(row) for row in page["data"]]
+        results = [BoltzHostedEngine.parse_molecule_result(row) for row in page["data"]]
         assert len(results) == 2
         first = results[0]
         assert first.result_id
@@ -174,7 +174,7 @@ class TestScreenResultParsing:
         in the product would be empty and nothing would raise."""
         page = fixture("screen_results_page.json")
         row = page["data"][0]
-        result = BoltzHostedEngine.parse_screen_result(row)
+        result = BoltzHostedEngine.parse_molecule_result(row)
         assert result.metrics.binding_confidence == pytest.approx(
             row["metrics"]["binding_confidence"]
         )
@@ -185,7 +185,7 @@ class TestScreenResultParsing:
         """So a separate paid ADME call is only needed for molecules we did
         not screen."""
         page = fixture("screen_results_page.json")
-        result = BoltzHostedEngine.parse_screen_result(page["data"][0])
+        result = BoltzHostedEngine.parse_molecule_result(page["data"][0])
         assert not result.adme.is_empty
         assert result.adme.solubility in (
             "high-confidence",
@@ -196,12 +196,12 @@ class TestScreenResultParsing:
 
     def test_each_hit_carries_a_structure_to_look_at(self) -> None:
         page = fixture("screen_results_page.json")
-        result = BoltzHostedEngine.parse_screen_result(page["data"][0])
+        result = BoltzHostedEngine.parse_molecule_result(page["data"][0])
         assert result.structure is not None
         assert result.structure.is_presigned
 
     def test_a_missing_metric_stays_none_rather_than_zero(self) -> None:
-        result = BoltzHostedEngine.parse_screen_result(
+        result = BoltzHostedEngine.parse_molecule_result(
             {"id": "r1", "smiles": "CCO", "metrics": {"binding_confidence": 0.9}}
         )
         assert result.metrics.binding_confidence == pytest.approx(0.9)
@@ -209,11 +209,11 @@ class TestScreenResultParsing:
         assert result.metrics.structure_confidence is None
 
     def test_a_result_with_no_binding_score_is_not_rankable(self) -> None:
-        result = BoltzHostedEngine.parse_screen_result({"id": "r1", "metrics": {}})
+        result = BoltzHostedEngine.parse_molecule_result({"id": "r1", "metrics": {}})
         assert not result.metrics.is_rankable
 
     def test_warnings_are_kept(self) -> None:
-        result = BoltzHostedEngine.parse_screen_result(
+        result = BoltzHostedEngine.parse_molecule_result(
             {"id": "r1", "warnings": [{"code": "c", "message": "odd geometry"}]}
         )
         assert result.warnings[0].message == "odd geometry"
@@ -242,7 +242,7 @@ class TestTestModeIsNotRealData:
 
     def test_the_job_says_it_is_not_live(self) -> None:
         """The one honest signal, and what the product must branch on."""
-        job = BoltzHostedEngine.parse_screen_job(fixture("screen_retrieve_succeeded.json"))
+        job = BoltzHostedEngine.parse_molecule_job(fixture("screen_retrieve_succeeded.json"))
         assert job.livemode is False
 
     def test_adme_may_return_fewer_molecules_than_were_sent(self) -> None:

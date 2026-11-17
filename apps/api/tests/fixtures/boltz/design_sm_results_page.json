@@ -1,0 +1,65 @@
+{
+  "data": [
+    {
+      "id": "test_res_sm_des_v2_SWJsCCMlgV4N3tR2pdb2_000000",
+      "smiles": "CC1=CC=C(C=C1)S(=O)(=O)N",
+      "metrics": {
+        "iptm": 0.5284,
+        "binding_confidence": 0.7226,
+        "structure_confidence": 0.8048,
+        "optimization_score": 0.93,
+        "ptm": 0.6103,
+        "complex_plddt": 0.9188,
+        "complex_iplddt": 0.6966
+      },
+      "artifacts": {
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?REDACTED",
+          "url_expires_at": "2026-11-17T07:40:35.354Z"
+        },
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?REDACTED",
+          "url_expires_at": "2026-11-17T07:40:35.354Z"
+        }
+      },
+      "created_at": "2026-11-17T07:10:35.354Z",
+      "adme": {
+        "solubility": "high-confidence",
+        "permeability": -2.9384,
+        "lipophilicity": 4.4197
+      }
+    },
+    {
+      "id": "test_res_sm_des_v2_SWJsCCMlgV4N3tR2pdb2_000001",
+      "smiles": "CC(C)(C)NCC(c1ccc(c(c1)CO)O)O",
+      "metrics": {
+        "iptm": 0.8406,
+        "binding_confidence": 0.8157,
+        "structure_confidence": 0.5391,
+        "optimization_score": 0.3534,
+        "ptm": 0.6771,
+        "complex_plddt": 0.8369,
+        "complex_iplddt": 0.8923
+      },
+      "artifacts": {
+        "structure": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/structure.cif?REDACTED",
+          "url_expires_at": "2026-11-17T07:40:35.354Z"
+        },
+        "archive": {
+          "url": "https://boltz-platform-prod-compute-api-storage.s3.us-east-1.amazonaws.com/test-fixtures/archive.tar.gz?REDACTED",
+          "url_expires_at": "2026-11-17T07:40:35.354Z"
+        }
+      },
+      "created_at": "2026-11-17T07:10:35.354Z",
+      "adme": {
+        "solubility": "high-risk",
+        "permeability": -6.1589,
+        "lipophilicity": 2.551
+      }
+    }
+  ],
+  "has_more": true,
+  "first_id": "test_res_sm_des_v2_SWJsCCMlgV4N3tR2pdb2_000000",
+  "last_id": "test_res_sm_des_v2_SWJsCCMlgV4N3tR2pdb2_000001"
+}
