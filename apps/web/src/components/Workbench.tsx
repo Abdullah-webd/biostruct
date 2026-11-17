@@ -37,6 +37,7 @@ import {
   stripMarkers,
 } from "@/lib/agent";
 import { DUR, EASE_OUT, stagger } from "@/lib/motion";
+import Markdown from "@/components/Markdown";
 import { Button, Notice, Panel, SkeletonRows } from "@/components/ui";
 
 const TOOL_LABELS: Record<string, string> = {
@@ -247,7 +248,7 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="flex min-h-0 flex-col gap-4">
+      <div className="flex min-h-0 flex-col gap-4 pb-2">
         {error ? <Notice tone="danger" title="Something went wrong">{error}</Notice> : null}
 
         {visible.length === 0 ? (
@@ -308,7 +309,10 @@ export default function Workbench({ sessionId }: { sessionId: string }) {
           ) : null}
         </AnimatePresence>
 
-        <div ref={tail} />
+        {/* The composer is sticky, so without this the last proposal card
+            sits underneath it and a researcher cannot read the price they are
+            being asked to approve. */}
+        <div ref={tail} className="h-2" />
 
         <Composer
           value={input}
@@ -409,18 +413,27 @@ function Prose({ text, flagged }: { text: string; flagged: string[] }) {
   );
 }
 
+/**
+ * The model writes markdown — headings, bullets, bold, and a table whenever it
+ * is pricing two steps — so it is rendered as markdown. Printing it raw was the
+ * ugliest thing in the first working build.
+ */
 function paragraphs(text: string) {
-  return text
-    .split(/\n{2,}/)
-    .filter(Boolean)
-    .map((block, i) => (
-      <p
-        key={i}
-        className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink"
-      >
-        {block}
-      </p>
-    ));
+  return <Markdown>{text}</Markdown>;
+}
+
+/**
+ * Money for a reader. The API stores four decimal places because a screen is
+ * priced per molecule at $0.0250, but "$25.0000" on a dashboard reads as a
+ * mistake. Sub-cent amounts keep their precision rather than rounding to
+ * "$0.00", which would be worse than useless on a per-molecule price.
+ */
+function money(value: string | undefined): string {
+  if (!value) return "—";
+  const n = Number(value);
+  if (Number.isNaN(n)) return `$${value}`;
+  if (n !== 0 && Math.abs(n) < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 function LiveTurn({ live }: { live: Live }) {
@@ -563,10 +576,10 @@ function SidePanel({
           Budget
         </h3>
         <p className="mt-2 font-mono text-2xl text-ink">
-          ${session?.budget_remaining_usd ?? "—"}
+          {money(session?.budget_remaining_usd)}
         </p>
         <p className="text-xs text-muted">
-          remaining of ${session?.budget_limit_usd ?? "—"} for this session
+          remaining of {money(session?.budget_limit_usd)} for this session
         </p>
         <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
           Reading the literature, finding a protein and assembling a library are

@@ -385,6 +385,7 @@ class ConversationRepository:
             id=doc["_id"],
             session_id=doc["session_id"],
             user_id=doc["user_id"],
+            seq=int(doc.get("seq", 0)),
             kind=doc["kind"],
             title=doc.get("title", ""),
             payload=doc.get("payload") or {},
@@ -398,9 +399,18 @@ class ConversationRepository:
     async def add_artifact(
         self, *, session_id: str, user_id: str, data: ArtifactCreate
     ) -> Artifact | None:
-        """Only onto a session the caller owns, checked in the database."""
-        owned = await self.db[SESSIONS].find_one(
-            {"_id": session_id, "user_id": user_id}, {"_id": 1}
+        """Only onto a session the caller owns, checked in the database.
+
+        ``seq`` is allocated the same way a message's is, and for the same
+        reason: one turn routinely produces several artifacts within the same
+        millisecond, and ordering them by ``created_at`` alone leaves the canvas
+        in arbitrary order. The counter is separate from the message counter so
+        the two numbers stay meaningful on their own.
+        """
+        owned = await self.db[SESSIONS].find_one_and_update(
+            {"_id": session_id, "user_id": user_id},
+            {"$inc": {"last_artifact_seq": 1}},
+            return_document=True,
         )
         if owned is None:
             return None
@@ -408,6 +418,7 @@ class ConversationRepository:
             "_id": str(uuid.uuid4()),
             "session_id": session_id,
             "user_id": user_id,
+            "seq": int(owned.get("last_artifact_seq", 1)),
             "kind": data.kind.value,
             "title": data.title,
             "payload": data.payload,
@@ -426,7 +437,9 @@ class ConversationRepository:
         cursor = (
             self.db[ARTIFACTS]
             .find({"session_id": session_id, "user_id": user_id})
-            .sort("created_at", -1)
+            # Newest first, by the allocated sequence rather than the clock:
+            # several artifacts from one turn share a millisecond.
+            .sort("seq", -1)
             .limit(limit)
         )
         return [self._to_artifact(d) async for d in cursor]

@@ -487,6 +487,7 @@ class TestArtifacts:
         artifacts = await repo.list_artifacts(session.id, user_id=USER)
         assert len(artifacts) == 2
         assert artifacts[0].kind is ArtifactKind.ranking
+        assert [a.seq for a in artifacts] == [2, 1]
         assert all(a.schema_version == SCHEMA_VERSION for a in artifacts)
 
     async def test_a_structure_artifact_points_at_our_own_copy(
@@ -527,3 +528,27 @@ class TestBlocks:
             created_at=datetime.now(UTC),
         )
         assert message.text == "Here is the plan."
+
+    async def test_artifacts_from_one_turn_keep_a_stable_order(
+        self, repo: ConversationRepository
+    ) -> None:
+        """A flaky test found this: two artifacts written in the same
+        millisecond had no defined order, and one turn routinely produces
+        several. A canvas that reshuffles between reads is a canvas a
+        researcher cannot refer back to."""
+        session = await a_session(repo)
+        made = await asyncio.gather(
+            *(
+                repo.add_artifact(
+                    session_id=session.id,
+                    user_id=USER,
+                    data=ArtifactCreate(kind=ArtifactKind.evidence, title=f"paper {i}"),
+                )
+                for i in range(8)
+            )
+        )
+        seqs = sorted(a.seq for a in made if a is not None)
+        assert seqs == list(range(1, 9))
+        first = [a.title for a in await repo.list_artifacts(session.id, user_id=USER)]
+        second = [a.title for a in await repo.list_artifacts(session.id, user_id=USER)]
+        assert first == second

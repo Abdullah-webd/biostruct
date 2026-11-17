@@ -167,8 +167,11 @@ async def ensure_indexes(db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         [("user_id", ASCENDING), ("created_at", DESCENDING)], name="messages_user_created"
     )
 
+    # Ordered by the allocated sequence, not the clock: several artifacts from
+    # one turn share a millisecond, and the canvas must not reorder itself
+    # between reads.
     await db.artifacts.create_index(
-        [("session_id", ASCENDING), ("created_at", DESCENDING)], name="artifacts_session_created"
+        [("session_id", ASCENDING), ("seq", DESCENDING)], name="artifacts_session_seq"
     )
     # The canvas opens an artifact from a finished run.
     await db.artifacts.create_index(

@@ -253,6 +253,10 @@ class Artifact(BaseModel):
     id: str
     session_id: str
     user_id: str
+    #: Position in the session, allocated atomically. One turn routinely
+    #: produces several artifacts within the same millisecond, so a timestamp
+    #: does not order them and the canvas would reshuffle on every read.
+    seq: int = 0
     kind: ArtifactKind
     title: str = ""
     payload: dict[str, Any] = Field(default_factory=dict)
