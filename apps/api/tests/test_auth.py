@@ -7,6 +7,8 @@ the happy path. The unhappy paths are the point.
 from __future__ import annotations
 
 from biostruct import security
+from biostruct.config import Settings
+from biostruct.main import API_PREFIX
 
 from .conftest import Api
 
@@ -197,3 +199,80 @@ class TestProtectedRoutes:
 
     async def test_projects_require_a_session(self, api: Api) -> None:
         assert (await api.get("/projects")).status_code == 401
+
+
+class TestRegistrationCanBeClosed:
+    """A public demo URL with a live engine key behind it is an open
+    invitation to spend the owner's credits, unless sign-ups are off."""
+
+    async def test_registration_is_open_by_default(self, api: Api) -> None:
+        created = await api.register("open-signup@example.com", "Open", "harbour-lantern-spruce-8")
+        assert created.status_code == 201
+
+    async def test_a_closed_deployment_refuses_new_accounts(
+        self, settings: Settings, clean_db: None
+    ) -> None:
+        from asgi_lifespan import LifespanManager
+        from httpx import ASGITransport, AsyncClient
+
+        from biostruct.main import create_app
+
+        closed = settings.model_copy(update={"allow_registration": False})
+        app = create_app(closed)
+        async with LifespanManager(app):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(
+                transport=transport, base_url="http://testserver", follow_redirects=True
+            ) as http:
+                csrf = await http.get(f"{API_PREFIX}/auth/csrf")
+                token = csrf.json()["csrf_token"]
+                response = await http.post(
+                    f"{API_PREFIX}/auth/register",
+                    json={
+                        "email": "nope@example.com",
+                        "name": "Nope",
+                        "password": "harbour-lantern-spruce-8",
+                    },
+                    headers={"x-csrf-token": token},
+                )
+        assert response.status_code == 403
+        assert response.json()["type"].endswith("registration_closed")
+
+    async def test_an_existing_account_can_still_sign_in_when_closed(
+        self, settings: Settings, clean_db: None
+    ) -> None:
+        """Closing sign-ups must not lock out the demo account itself."""
+        from asgi_lifespan import LifespanManager
+        from httpx import ASGITransport, AsyncClient
+
+        from biostruct.main import create_app
+
+        async def run(cfg: Settings, body: dict, path: str) -> int:
+            app = create_app(cfg)
+            async with LifespanManager(app):
+                transport = ASGITransport(app=app)
+                async with AsyncClient(
+                    transport=transport,
+                    base_url="http://testserver",
+                    follow_redirects=True,
+                ) as http:
+                    csrf = await http.get(f"{API_PREFIX}/auth/csrf")
+                    token = csrf.json()["csrf_token"]
+                    reply = await http.post(
+                        f"{API_PREFIX}{path}", json=body, headers={"x-csrf-token": token}
+                    )
+                    return reply.status_code
+
+        account = {
+            "email": "seeded@example.com",
+            "name": "Seeded",
+            "password": "harbour-lantern-spruce-8",
+        }
+        assert await run(settings, account, "/auth/register") == 201
+        closed = settings.model_copy(update={"allow_registration": False})
+        signed_in = await run(
+            closed,
+            {"email": account["email"], "password": account["password"]},
+            "/auth/login",
+        )
+        assert signed_in == 200

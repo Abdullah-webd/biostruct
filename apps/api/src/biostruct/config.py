@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     #: cookies and sign-in then fails over plain http. Deliberately a separate
     #: switch from the environment, so real spending is always an explicit
     #: choice rather than a side effect of a deployment setting.
+    #: Whether anyone may create an account. Off on the public demo, where a
+    #: live engine key means a new account can spend real credits.
+    allow_registration: bool = True
     boltz_allow_live: bool = False
     boltz_api_key: SecretStr = SecretStr("")
     boltz_base_url: str = "https://api.boltz.bio"

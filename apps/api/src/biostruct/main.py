@@ -120,6 +120,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["content-type", "x-csrf-token"],
     )
 
+    # Routes resolve settings through `get_settings`, which is lru_cached and
+    # reads the environment. Without this, a Settings passed to create_app
+    # would configure startup and then be silently ignored by every route —
+    # so a per-deployment switch could not be tested, and would look like it
+    # worked.
+    app.dependency_overrides[get_settings] = lambda: cfg
+
     app.add_exception_handler(errors.ProblemError, errors.problem_handler)
     app.add_exception_handler(StarletteHTTPException, errors.http_exception_handler)
     app.add_exception_handler(RequestValidationError, errors.validation_handler)

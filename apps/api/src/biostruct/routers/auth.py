@@ -105,6 +105,12 @@ async def register(
     users: UsersDep,
     settings: SettingsDep,
 ) -> UserPublic:
+    if not settings.allow_registration:
+        # A public demo URL with a live engine key behind it: anyone who could
+        # sign up could spend the owner's credits on real folds. Sign-ups are
+        # closed on that deployment; the demo account is seeded in advance.
+        raise errors.registration_closed()
+
     ip = client_ip(request)
     if (retry := security.register_limiter_by_ip.check(f"register:{ip}")) is not None:
         raise errors.rate_limited(retry)

@@ -112,6 +112,23 @@ def forbidden() -> ProblemError:
     )
 
 
+def registration_closed() -> ProblemError:
+    """Sign-ups are off on this deployment.
+
+    Used where a live engine key sits behind a public URL: an open sign-up
+    form there is an open invitation to spend someone else's money.
+    """
+    return ProblemError(
+        code="registration_closed",
+        title="Sign-ups are closed",
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            "This deployment is a demonstration and is not accepting new accounts. "
+            "Use the demo account you were given."
+        ),
+    )
+
+
 def validation_problem(detail: str) -> ProblemError:
     """A request we understood but cannot carry out, with a readable reason.
 
