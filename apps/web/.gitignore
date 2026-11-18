@@ -1,7 +1,10 @@
 
 # Playwright is installed on demand for the visual checks, not shipped.
 *.tsbuildinfo
+.env*
 .next/
+.vercel
+.vercel/
 .verify/
 node_modules/
 out/
