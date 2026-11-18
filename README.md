@@ -76,6 +76,34 @@ BOLTZ_API_KEY=sk_bc_ws_live_… BOLTZ_ALLOW_LIVE=1 .venv/bin/uvicorn biostruct.m
 
 ---
 
+## The deployment
+
+| | |
+|---|---|
+| Web | Vercel — <https://antidote-silk.vercel.app> |
+| API | Railway, project `antidote-api` |
+| Database | MongoDB Atlas, database **`antidote`** |
+| Structures | Stored in Mongo (`STORAGE_BACKEND=mongo`), because a container's disk is ephemeral |
+| Sign-ups | **Closed** (`ALLOW_REGISTRATION=false`) — a live engine key behind a public URL means a new account could spend real credits |
+
+The browser only ever talks to the Vercel origin; `API_ORIGIN` points Next's
+rewrite at Railway, which keeps the session cookie first-party.
+
+### Seeding the demo account
+
+```bash
+cd apps/api
+ENV=prod MONGODB_DB=antidote STORAGE_BACKEND=mongo \
+  BOLTZ_API_KEY=sk_bc_ws_live_… .venv/bin/python scripts/seed_demo.py
+```
+
+> **`MONGODB_DB` must match the deployment.** It defaults to `biostruct`
+> locally and the deployment uses `antidote`. Seeding without it writes a
+> perfectly good demo account into a database nothing reads, and sign-in on
+> the live site then fails with no obvious cause.
+
+---
+
 ## Checks
 
 ```bash
