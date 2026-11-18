@@ -16,10 +16,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import re
 import shutil
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
@@ -311,10 +313,72 @@ async def mirror_url(
     return await storage.put_bytes(key, data, content_type=content_type)
 
 
+class MongoStorage:
+    """Files in MongoDB, beside the records that point at them.
+
+    Here because the deployment target gives a container an ephemeral disk:
+    local storage would lose every predicted structure on each redeploy, and
+    the demo account would open to an empty viewer. S3 would also solve it and
+    needs credentials and a bucket this project does not have.
+
+    Honest about its limits: a document caps at 16 MB, so this suits a CIF of
+    a few hundred kilobytes and would be the wrong answer for large artefacts.
+    Predicted structures are the only thing stored here, and a 300-residue
+    protein is about 200 KB.
+    """
+
+    name = "mongo"
+    COLLECTION = "stored_files"
+
+    def __init__(self, db: Any) -> None:
+        self._db = db
+
+    async def put_bytes(
+        self, key: str, data: bytes, *, content_type: str = "application/octet-stream"
+    ) -> StoredObject:
+        if len(data) > 15 * 1024 * 1024:
+            raise StorageError(
+                f"{key} is {len(data) / 1e6:.1f} MB, which will not fit in a document"
+            )
+        await self._db[self.COLLECTION].update_one(
+            {"_id": key},
+            {
+                "$set": {
+                    "data": data,
+                    "content_type": content_type,
+                    "size_bytes": len(data),
+                    "stored_at": datetime.now(UTC),
+                }
+            },
+            upsert=True,
+        )
+        return StoredObject(key=key, size_bytes=len(data), content_type=content_type)
+
+    async def get_bytes(self, key: str) -> bytes:
+        doc = await self._db[self.COLLECTION].find_one({"_id": key})
+        if doc is None:
+            raise StorageError(f"{key} is not stored")
+        data = doc.get("data")
+        return bytes(data) if data is not None else b""
+
+    async def exists(self, key: str) -> bool:
+        return await self._db[self.COLLECTION].find_one({"_id": key}, {"_id": 1}) is not None
+
+    async def delete(self, key: str) -> None:
+        await self._db[self.COLLECTION].delete_one({"_id": key})
+
+    async def delete_prefix(self, prefix: str) -> int:
+        result = await self._db[self.COLLECTION].delete_many(
+            {"_id": {"$regex": f"^{re.escape(prefix)}"}}
+        )
+        return int(result.deleted_count)
+
+
 def build_storage(
     *,
     backend: str,
     local_path: str,
+    db: Any = None,
     endpoint_url: str = "",
     access_key_id: str = "",
     secret_access_key: str = "",
@@ -322,6 +386,10 @@ def build_storage(
 ) -> StorageBackend:
     if backend == "local":
         return LocalDiskStorage(local_path)
+    if backend == "mongo":
+        if db is None:
+            raise ValueError("the mongo storage backend needs a database handle")
+        return MongoStorage(db)
     if backend == "s3":
         return S3Storage(
             endpoint_url=endpoint_url,

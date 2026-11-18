@@ -1,4 +1,4 @@
-# Biostruct API image. Also used to run the test suite on the compose network,
+# Antidote API image. Also used to run the test suite on the compose network,
 # which is how tests reach MongoDB without depending on host port forwarding.
 FROM python:3.12-slim AS base
 
@@ -16,7 +16,17 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN uv pip install --system -e .
 
+# --- test image (adds dev dependencies and the tests) --------------------
+# Deliberately NOT last: a platform that builds a Dockerfile without being
+# told a target builds the final stage, and the final stage shipping `pytest`
+# as its CMD would deploy a container that runs the tests and exits.
+FROM base AS test
+RUN uv pip install --system -e ".[dev]"
+COPY tests ./tests
+CMD ["pytest"]
+
 # --- runtime image (no dev dependencies) ---------------------------------
+# Last on purpose, so an untargeted build gets the server.
 FROM base AS runtime
 # Run as a non-root user: a container that does not need root should not have it.
 RUN useradd --create-home --uid 10001 app && chown -R app:app /app
@@ -24,9 +34,3 @@ USER app
 EXPOSE 8000
 # Railway supplies $PORT; default to 8000 for local runs.
 CMD ["sh", "-c", "uvicorn biostruct.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
-
-# --- test image (adds dev dependencies and the tests) --------------------
-FROM base AS test
-RUN uv pip install --system -e ".[dev]"
-COPY tests ./tests
-CMD ["pytest"]

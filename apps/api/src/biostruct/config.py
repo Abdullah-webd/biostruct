@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     openai_agents_disable_tracing: bool = True
 
     # --- storage -----------------------------------------------------------
-    storage_backend: Literal["local", "s3"] = "local"
+    storage_backend: Literal["local", "s3", "mongo"] = "local"
     storage_local_path: str = "./data/structures"
     s3_endpoint_url: str = ""
     s3_access_key_id: SecretStr = SecretStr("")

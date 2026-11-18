@@ -55,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.storage = build_storage(
             backend=cfg.storage_backend,
             local_path=cfg.storage_local_path,
+            db=db,
             endpoint_url=cfg.s3_endpoint_url,
             access_key_id=cfg.s3_access_key_id.get_secret_value(),
             secret_access_key=cfg.s3_secret_access_key.get_secret_value(),

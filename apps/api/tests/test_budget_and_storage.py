@@ -10,14 +10,27 @@ from decimal import Decimal
 
 import httpx
 import pytest
+import pytest_asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from biostruct.budget import BudgetExceeded, BudgetService, BudgetState
+from biostruct.config import Settings
 from biostruct.storage import (
     LocalDiskStorage,
     StorageError,
     artifact_key,
     mirror_url,
 )
+
+
+@pytest_asyncio.fixture
+async def db(settings: Settings, clean_db: None):  # type: ignore[no-untyped-def]
+    client: AsyncIOMotorClient[dict] = AsyncIOMotorClient(settings.mongodb_uri, tz_aware=True)
+    database = client[settings.mongodb_db]
+    try:
+        yield database
+    finally:
+        client.close()
 
 
 class TestBudgetState:
@@ -331,3 +344,55 @@ class TestMirroring:
                     key="k",
                     client=http,
                 )
+
+
+class TestMongoStorage:
+    """Files beside the records that point at them.
+
+    Exists because the deployment target gives a container an ephemeral disk:
+    on local storage every predicted structure would vanish on redeploy and
+    the demo account would open to an empty viewer.
+    """
+
+    async def test_a_structure_round_trips(self, db) -> None:  # type: ignore[no-untyped-def]
+        from biostruct.storage import MongoStorage
+
+        storage = MongoStorage(db)
+        cif = b"data_model\n_entry.id model\n" + b"ATOM " * 1000
+        stored = await storage.put_bytes("lab/x/structure.cif", cif, content_type="chemical/x-cif")
+        assert stored.size_bytes == len(cif)
+        assert await storage.get_bytes("lab/x/structure.cif") == cif
+
+    async def test_writing_the_same_key_twice_replaces_rather_than_duplicates(self, db) -> None:  # type: ignore[no-untyped-def]
+        from biostruct.storage import MongoStorage
+
+        storage = MongoStorage(db)
+        await storage.put_bytes("k", b"first")
+        await storage.put_bytes("k", b"second")
+        assert await storage.get_bytes("k") == b"second"
+
+    async def test_a_missing_file_is_an_error_not_empty_bytes(self, db) -> None:  # type: ignore[no-untyped-def]
+        import pytest
+
+        from biostruct.storage import MongoStorage, StorageError
+
+        with pytest.raises(StorageError, match="not stored"):
+            await MongoStorage(db).get_bytes("never/written.cif")
+
+    async def test_something_too_large_for_a_document_is_refused_clearly(self, db) -> None:  # type: ignore[no-untyped-def]
+        import pytest
+
+        from biostruct.storage import MongoStorage, StorageError
+
+        with pytest.raises(StorageError, match="will not fit"):
+            await MongoStorage(db).put_bytes("big", b"x" * (16 * 1024 * 1024))
+
+    async def test_a_prefix_can_be_cleared(self, db) -> None:  # type: ignore[no-untyped-def]
+        from biostruct.storage import MongoStorage
+
+        storage = MongoStorage(db)
+        await storage.put_bytes("lab/a/structure.cif", b"a")
+        await storage.put_bytes("lab/b/structure.cif", b"b")
+        await storage.put_bytes("other/c.cif", b"c")
+        assert await storage.delete_prefix("lab/") == 2
+        assert await storage.exists("other/c.cif")

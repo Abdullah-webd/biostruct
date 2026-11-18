@@ -66,6 +66,7 @@ _COLLECTIONS = (
     "design_runs",
     "candidates",
     "source_cache",
+    "stored_files",
     "lab_predictions",
     "lab_screens",
 )
